@@ -1,0 +1,5 @@
+/target
+/font_files
+*.bak
+*.png
+*.bin
