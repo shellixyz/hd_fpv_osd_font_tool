@@ -12,7 +12,7 @@ This tool is for managing OSD fonts or tile collections for HD FPV systems (Walk
 It is possible to convert between all 3 formats with the command:
 `hd_fpv_font_tool convert <from> <to>`
 
-With from and to being in the format <format>:<path>
+With the `<from>` and `<to>` arguments being in the format `<format>:<path>`
 
 ## Examples
 
@@ -31,8 +31,14 @@ Will extract all the tiles from `font.bin` to the `font_tiles` directory creatin
 * From a tile grid: `hd_fpv_font_tool convert tilegrid:font_grid.png bin:font.bin`
 * From a tile directory: `hd_fpv_font_tool convert tiledir:font_tiles bin:font.bin`
 
+## Building
+
+* Install the Rust compiler/toolchain: [see here](https://www.rust-lang.org/tools/install)
+* Clone the repository: `https://github.com/shellixyz/hd_fpv_font_tool.git`
+* Build: `cd hd_fpv_font_tool && cargo build`
+
 ## Future
 
 * For now only the DJI FPV system fonts are supported but fonts for the Avatar and HDZero video systems will be supported soon
 * Font symbols can span several tiles, soon it will be possible to extract the full symbols to a directory for easier editing
-* Support for DJI FPV extended fonts (treating font_*.bin and font_*_2.bin) as a single collection of 512 tiles
+* Support for DJI FPV extended fonts (treating `font_*.bin` and `font_*_2.bin`) as a single collection of 512 tiles
