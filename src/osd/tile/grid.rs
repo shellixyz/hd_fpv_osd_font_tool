@@ -129,7 +129,7 @@ impl TileGrid {
         )
     }
 
-    pub fn load_from_image<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<Self, LoadError> {
+    pub fn load_from_image<P: AsRef<Path> + Display>(path: P) -> Result<Self, LoadError> {
         let image = ImageReader::open(&path)?.decode()?;
         let (img_dim_width, img_dim_height) = image.dimensions();
         let tile_kind = tile::Kind::for_grid_image_dimensions(ImageDimensions { width: img_dim_width, height: img_dim_height })?;

@@ -65,7 +65,7 @@ impl StandardSizeTileArray {
 
     // Load at most 256 tiles from the specified directory, all the tiles must be of the same kind.
     // The name of the files must be in the format "{:03}.png"
-    pub fn load_from_dir<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<Self, LoadFromDirError> {
+    pub fn load_from_dir<P: AsRef<Path> + Display>(path: P) -> Result<Self, LoadFromDirError> {
         let mut tiles = array![None; STANDARD_TILE_COUNT];
         let mut tile_kind = None;
 

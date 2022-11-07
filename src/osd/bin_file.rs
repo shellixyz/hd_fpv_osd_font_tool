@@ -148,7 +148,7 @@ pub struct BinFileReader {
 
 impl BinFileReader {
 
-    pub fn open<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<Self, OpenError> {
+    pub fn open<P: AsRef<Path> + Display>(path: P) -> Result<Self, OpenError> {
         let file = File::open(&path).map_err(OpenError::IOError)?;
         let tile_kind = tile::Kind::for_bin_file_size_bytes(file.metadata().unwrap().len() as usize)?;
         log::info!("detected {} kind of tiles in {}", tile_kind, path);
