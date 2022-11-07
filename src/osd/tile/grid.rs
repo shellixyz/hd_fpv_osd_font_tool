@@ -9,7 +9,7 @@ use image::{ImageBuffer, Rgba, GenericImage, ImageError, GenericImageView};
 use image::io::Reader as ImageReader;
 use strum::IntoEnumIterator;
 
-use super::containers::{GetTileKind, ReplaceTile, ExtendedSizeArray};
+use super::containers::{GetTileKind, ReplaceTile, ExtendedSizeArray, ExtendedSizeContainer, StandardTileContainer};
 use super::{Tile, TileIter};
 // use crate::osd::standard_size_tile_container::{self, StandardSizeTileArray, StandardSizeTileContainer};
 use crate::osd::bin_file::{BinFileReader, SeekReadError as BinFileSeekReadError};
@@ -74,7 +74,7 @@ struct Dimensions {
     height: usize
 }
 
-const DIMENSIONS: Dimensions = Dimensions { width: 16, height: 16 };
+const WIDTH_TILES: usize = 16;
 const SEPARATOR_THICKNESS: u32 = 2;
 
 impl tile::Kind {
@@ -141,7 +141,7 @@ macro_rules! grid {
                 let tile_dimensions = tile_kind.dimensions();
                 let mut grid = Self::new(tile_kind);
 
-                for y in 0..DIMENSIONS.height {
+                for y in 0..($container_size/16) {
                     for x in 0..DIMENSIONS.width {
                         let (tile_pos_x, tile_pos_y) = Self::image_tile_position(&tile_kind, x as u32, y as u32);
                         let sub_image = image.view(tile_pos_x, tile_pos_y, tile_dimensions.width, tile_dimensions.height).to_image();
@@ -158,7 +158,7 @@ macro_rules! grid {
                 let tile_dimensions = self.tile_kind().dimensions();
                 ImageDimensions {
                     width: DIMENSIONS.width as u32 * tile_dimensions.width + (DIMENSIONS.width as u32 - 1) * SEPARATOR_THICKNESS,
-                    height: DIMENSIONS.height as u32 * tile_dimensions.height + (DIMENSIONS.height as u32 - 1) * SEPARATOR_THICKNESS
+                    height: ($container_size/16) as u32 * tile_dimensions.height + (($container_size/16) as u32 - 1) * SEPARATOR_THICKNESS
                 }
             }
 
@@ -166,15 +166,10 @@ macro_rules! grid {
                 let img_dim = self.image_dimensions();
                 let mut image = Image::from_pixel(img_dim.width, img_dim.height, Rgba::from([0, 0, 0, 255]));
 
-                let tile_dimensions = self.tile_kind().dimensions();
-                for x in 0..DIMENSIONS.width {
-                    for y in 0..DIMENSIONS.height {
-                        let (tile_x_position, tile_y_position) = Self::image_tile_position(&self.tile_kind(), x as u32, y as u32);
-                        let mut sub_image = image.sub_image(tile_x_position, tile_y_position, tile_dimensions.width, tile_dimensions.height);
-                        for (pixel_x, pixel_y, pixel) in self[(x, y)].enumerate_pixels() {
-                            sub_image.put_pixel(pixel_x, pixel_y, *pixel);
-                        }
-                    }
+                for (index, tile) in self.iter().enumerate() {
+                    let (x, y) = (index % 16, index / 16);
+                    let (tile_x_position, tile_y_position) = Self::image_tile_position(&self.tile_kind(), x as u32, y as u32);
+                    image.copy_from(tile.image(), tile_x_position, tile_y_position).unwrap();
                 }
 
                 image
@@ -199,9 +194,6 @@ macro_rules! grid {
                 Self(tile_array)
             }
         }
-
-        impl StandardSizeContainer for $type_name {}
-        impl StandardSizeContainer for &$type_name {}
 
         // impl Iterator for TileIntoIter<TileGrid> {
         //     type Item = Tile;
@@ -254,6 +246,24 @@ macro_rules! grid {
 
 grid!(StandardSizeGrid, StandardSizeArray, containers::STANDARD_TILE_COUNT);
 grid!(ExtendedSizeGrid, ExtendedSizeArray, containers::EXTENDED_TILE_COUNT);
+
+impl StandardTileContainer for StandardSizeGrid {}
+impl StandardTileContainer for &StandardSizeGrid {}
+impl StandardSizeContainer for StandardSizeGrid {}
+impl StandardSizeContainer for &StandardSizeGrid {}
+
+impl StandardTileContainer for ExtendedSizeGrid {}
+impl StandardTileContainer for &ExtendedSizeGrid {}
+
+impl ExtendedSizeContainer for &ExtendedSizeGrid {
+    fn first_half(&self) -> StandardSizeArray {
+        self.0.first_half()
+    }
+
+    fn second_half(&self) -> StandardSizeArray {
+        self.0.second_half()
+    }
+}
 
 impl From<ExtendedSizeArray> for StandardSizeGrid {
     fn from(tile_array: ExtendedSizeArray) -> Self {

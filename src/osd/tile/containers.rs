@@ -1,7 +1,7 @@
 
 use std::{path::Path, fmt::Display, error::Error};
 
-use super::{Tile, TileIter, grid::StandardSizeGrid, LoadError as TileLoadError, Kind as TileKind};
+use super::{Tile, TileIter, grid::{StandardSizeGrid, ExtendedSizeGrid}, LoadError as TileLoadError, Kind as TileKind};
 use crate::osd::bin_file::{BinFileReader, SeekReadError as BinFileSeekReadError};
 use array_macro::array;
 use derive_more::Index;
@@ -10,8 +10,12 @@ use paste::paste;
 
 pub const STANDARD_TILE_COUNT: usize = 256;
 pub const EXTENDED_TILE_COUNT: usize = STANDARD_TILE_COUNT * 2;
+pub trait StandardTileContainer {}
 pub trait StandardSizeContainer {}
-pub trait ExtendedSizeContainer {}
+pub trait ExtendedSizeContainer {
+    fn first_half(&self) -> StandardSizeArray;
+    fn second_half(&self) -> StandardSizeArray;
+}
 
 #[derive(Debug)]
 pub enum LoadFromDirError {
@@ -120,17 +124,10 @@ macro_rules! container {
             pub struct $type_name(pub(crate) [<$type_name Inner>]);
         }
 
-        impl $size_ident_trait for $type_name {}
-        impl $size_ident_trait for &$type_name {}
-
         impl $type_name {
 
             pub fn new(tile_kind: TileKind) -> Self {
                 Self(array![Tile::new(tile_kind); $size])
-            }
-
-            pub fn into_grid(self) -> StandardSizeGrid {
-                StandardSizeGrid::from(self)
             }
 
             paste! {
@@ -221,6 +218,11 @@ macro_rules! container {
 container!(StandardSizeArray, StandardSizeContainer, STANDARD_TILE_COUNT);
 container!(ExtendedSizeArray, ExtendedSizeContainer, EXTENDED_TILE_COUNT);
 
+impl StandardTileContainer for StandardSizeArray {}
+impl StandardTileContainer for &StandardSizeArray {}
+impl StandardSizeContainer for StandardSizeArray {}
+impl StandardSizeContainer for &StandardSizeArray {}
+
 impl StandardSizeArray {
 
     pub fn extend(self, other: Self) -> Result<ExtendedSizeArray, TileKindMismatchError> {
@@ -233,17 +235,40 @@ impl StandardSizeArray {
         Ok(array)
     }
 
+    pub fn into_grid(self) -> StandardSizeGrid {
+        StandardSizeGrid::from(self)
+    }
+
 }
 
-impl ExtendedSizeArray {
+impl StandardTileContainer for ExtendedSizeArray {}
+impl StandardTileContainer for &ExtendedSizeArray {}
 
-    pub fn first_half(&self) -> StandardSizeArray {
+impl ExtendedSizeArray {
+    pub fn into_grid(self) -> ExtendedSizeGrid {
+        ExtendedSizeGrid::from(self)
+    }
+}
+
+impl ExtendedSizeContainer for &ExtendedSizeArray {
+    fn first_half(&self) -> StandardSizeArray {
+        (**self).first_half()
+    }
+
+    fn second_half(&self) -> StandardSizeArray {
+        (**self).second_half()
+    }
+}
+
+impl ExtendedSizeContainer for ExtendedSizeArray {
+
+    fn first_half(&self) -> StandardSizeArray {
         let mut array = StandardSizeArray::new(self.tile_kind());
         array.0.clone_from_slice(&self.0[0..STANDARD_TILE_COUNT]);
         array
     }
 
-    pub fn second_half(&self) -> StandardSizeArray {
+    fn second_half(&self) -> StandardSizeArray {
         let mut array = StandardSizeArray::new(self.tile_kind());
         array.0.clone_from_slice(&self.0[STANDARD_TILE_COUNT..EXTENDED_TILE_COUNT]);
         array

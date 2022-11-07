@@ -6,6 +6,7 @@ use std::io::Error as IOError;
 
 use image::ImageError;
 
+use self::tile::containers::{ExtendedSizeContainer, StandardTileContainer};
 use self::{tile::{Tile, containers::StandardSizeContainer}, bin_file::BinFileWriter};
 
 pub trait SaveTilesToDir {
@@ -14,7 +15,7 @@ pub trait SaveTilesToDir {
 
 impl<T> SaveTilesToDir for T
 where
-    for<'any> &'any T: IntoIterator<Item = &'any Tile> + StandardSizeContainer,
+    for<'any> &'any T: IntoIterator<Item = &'any Tile> + StandardTileContainer,
 {
     fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), ImageError> {
         std::fs::create_dir_all(&path).unwrap();
@@ -56,5 +57,19 @@ where
         }
 
         Ok(())
+    }
+}
+
+pub trait SaveToBinFiles {
+    fn save_to_bin_files<P: AsRef<Path>>(&self, path1: P, path2: P) -> Result<(), IOError>;
+}
+
+impl<T> SaveToBinFiles for T
+where
+    for<'any> &'any T: ExtendedSizeContainer
+{
+    fn save_to_bin_files<P: AsRef<Path>>(&self, path1: P, path2: P) -> Result<(), IOError> {
+        self.first_half().save_tiles_to_bin_file(path1)?;
+        self.second_half().save_tiles_to_bin_file(path2)
     }
 }
