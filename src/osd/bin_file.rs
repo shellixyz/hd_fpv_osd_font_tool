@@ -97,6 +97,44 @@ impl From<IOError> for SeekReadError {
     }
 }
 
+#[derive(Debug)]
+pub enum LoadError {
+    IOError(IOError),
+    WrongSizeError,
+    SeekError(SeekError),
+}
+
+impl Error for LoadError {}
+
+impl Display for LoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use LoadError::*;
+        match self {
+            IOError(io_error) => io_error.fmt(f),
+            WrongSizeError => f.write_str("File size does not match a valid bin file size"),
+            SeekError(seek_error) => seek_error.fmt(f),
+        }
+    }
+}
+
+impl From<OpenError> for LoadError {
+    fn from(error: OpenError) -> Self {
+        match error {
+            OpenError::IOError(error) => Self::IOError(error),
+            OpenError::WrongSizeError => Self::WrongSizeError,
+        }
+    }
+}
+
+impl From<SeekReadError> for LoadError {
+    fn from(error: SeekReadError) -> Self {
+        match error {
+            SeekReadError::SeekError(error) => Self::SeekError(error),
+            SeekReadError::IOError(error) => Self::IOError(error),
+        }
+    }
+}
+
 pub enum SeekFrom {
     Start(u32),
     End(i32),
@@ -180,6 +218,11 @@ impl BinFileReader {
         StandardSizeTileArray::try_from(self)
     }
 
+}
+
+pub fn load<P: AsRef<Path> + Display>(path: P) -> Result<StandardSizeTileArray, LoadError> {
+    let mut bin_file_reader = BinFileReader::open(path)?;
+    Ok(StandardSizeTileArray::try_from(&mut bin_file_reader)?)
 }
 
 #[derive(Debug)]
