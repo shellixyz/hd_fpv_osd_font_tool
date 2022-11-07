@@ -8,7 +8,7 @@ use clap::{Parser, Subcommand};
 
 use hd_fpv_osd_font_tool::osd::{
     bin_file::BinFileReader, SaveTilesToDir, tile::grid::TileGrid, SaveTilesToBinFile,
-    tile::containers::StandardSizeTileArray
+    tile::containers::StandardSizeArray
 };
 
 use hd_fpv_osd_font_tool::log_level::LogLevel;
@@ -172,7 +172,7 @@ fn convert_command<'a>(from: &'a String, to: &'a String) -> Result<(), ConvertEr
         },
 
         (TileDir(from_path), to_arg) => {
-            let tile_array = StandardSizeTileArray::load_from_dir(from_path).unwrap();
+            let tile_array = StandardSizeArray::load_from_dir(from_path).unwrap();
             match to_arg {
                 BinFile(to_path) => tile_array.save_tiles_to_bin_file(to_path).unwrap(),
                 TileGrid(to_path) => {

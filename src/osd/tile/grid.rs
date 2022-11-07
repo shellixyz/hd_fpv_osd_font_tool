@@ -12,7 +12,7 @@ use strum::IntoEnumIterator;
 use super::{Tile, TileIter};
 // use crate::osd::standard_size_tile_container::{self, StandardSizeTileArray, StandardSizeTileContainer};
 use crate::osd::bin_file::{BinFileReader, SeekReadError as BinFileSeekReadError};
-use crate::osd::tile::{self, containers::{self, StandardSizeTileArray, StandardSizeTileContainer}};
+use crate::osd::tile::{self, containers::{self, StandardSizeArray, StandardSizeContainer}};
 
 #[derive(Debug)]
 pub struct InvalidImageDimensionsError;
@@ -95,12 +95,12 @@ impl tile::Kind {
 
 pub type Image = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-pub struct TileGrid(StandardSizeTileArray);
+pub struct TileGrid(StandardSizeArray);
 
 impl TileGrid {
 
     pub fn new(tile_kind: tile::Kind) -> Self {
-        Self(StandardSizeTileArray::new(tile_kind))
+        Self(StandardSizeArray::new(tile_kind))
     }
 
     pub fn index_linear_to_grid(index: usize) -> (usize, usize) {
@@ -198,14 +198,14 @@ impl TryFrom<&mut BinFileReader> for TileGrid {
     }
 }
 
-impl From<StandardSizeTileArray> for TileGrid {
-    fn from(tile_array: StandardSizeTileArray) -> Self {
+impl From<StandardSizeArray> for TileGrid {
+    fn from(tile_array: StandardSizeArray) -> Self {
         Self(tile_array)
     }
 }
 
-impl StandardSizeTileContainer for TileGrid {}
-impl StandardSizeTileContainer for &TileGrid {}
+impl StandardSizeContainer for TileGrid {}
+impl StandardSizeContainer for &TileGrid {}
 
 // impl Iterator for TileIntoIter<TileGrid> {
 //     type Item = Tile;

@@ -8,7 +8,7 @@ use derive_more::Index;
 
 
 pub const STANDARD_TILE_COUNT: usize = 256;
-pub trait StandardSizeTileContainer {}
+pub trait StandardSizeContainer {}
 
 #[derive(Debug)]
 pub enum LoadFromDirError {
@@ -45,15 +45,15 @@ impl Display for WrongTileKindError {
     }
 }
 
-type StandardSizeTileArrayInner = [Tile; STANDARD_TILE_COUNT];
+type StandardSizeArrayInner = [Tile; STANDARD_TILE_COUNT];
 
 #[derive(Index)]
-pub struct StandardSizeTileArray(pub(crate) StandardSizeTileArrayInner);
+pub struct StandardSizeArray(pub(crate) StandardSizeArrayInner);
 
-impl StandardSizeTileContainer for StandardSizeTileArray {}
-impl StandardSizeTileContainer for &StandardSizeTileArray {}
+impl StandardSizeContainer for StandardSizeArray {}
+impl StandardSizeContainer for &StandardSizeArray {}
 
-impl StandardSizeTileArray {
+impl StandardSizeArray {
 
     pub fn new(tile_kind: TileKind) -> Self {
         Self(array![Tile::new(tile_kind); STANDARD_TILE_COUNT])
@@ -144,7 +144,7 @@ impl StandardSizeTileArray {
 //     }
 // }
 
-impl<'a> Iterator for TileIter<'a, StandardSizeTileArray> {
+impl<'a> Iterator for TileIter<'a, StandardSizeArray> {
     type Item = &'a Tile;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -167,17 +167,17 @@ impl<'a> Iterator for TileIter<'a, StandardSizeTileArray> {
 //     }
 // }
 
-impl<'a> IntoIterator for &'a StandardSizeTileArray {
+impl<'a> IntoIterator for &'a StandardSizeArray {
     type Item = &'a Tile;
 
-    type IntoIter = TileIter<'a, StandardSizeTileArray>;
+    type IntoIter = TileIter<'a, StandardSizeArray>;
 
     fn into_iter(self) -> Self::IntoIter {
         Self::IntoIter { container: self, index: 0 }
     }
 }
 
-impl TryFrom<&mut BinFileReader> for StandardSizeTileArray {
+impl TryFrom<&mut BinFileReader> for StandardSizeArray {
     type Error = BinFileSeekReadError;
 
     fn try_from(file: &mut BinFileReader) -> Result<Self, Self::Error> {
@@ -192,7 +192,7 @@ impl TryFrom<&mut BinFileReader> for StandardSizeTileArray {
     }
 }
 
-impl From<&TileGrid> for StandardSizeTileArray {
+impl From<&TileGrid> for StandardSizeArray {
     fn from(tile_grid: &TileGrid) -> Self {
         let mut array = Self::new(tile_grid.tile_kind());
         let mut tile_grid_iterator = tile_grid.iter();
