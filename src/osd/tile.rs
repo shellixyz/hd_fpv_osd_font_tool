@@ -13,7 +13,7 @@ use super::bin_file::BinFileReader;
 
 pub mod grid;
 
-#[derive(Debug,PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dimensions {
     pub width: u32,
     pub height: u32
