@@ -167,15 +167,6 @@ impl Tile {
         Ok(Self::try_from(file.read_tile_bytes()?)?)
     }
 
-    pub fn bytes(&self) -> Bytes {
-        let mut bytes = vec![0; self.kind.raw_rgba_size_bytes()];
-        for (index, pixel) in self.pixels().enumerate() {
-            let bytes_start = index * pixel.0.len();
-            bytes[bytes_start..bytes_start + pixel.0.len()].copy_from_slice(&pixel.0);
-        }
-        bytes
-    }
-
     pub fn kind(&self) -> Kind {
         self.kind
     }

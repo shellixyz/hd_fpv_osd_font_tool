@@ -219,7 +219,7 @@ impl BinFileWriter {
         if self.tile_count >= standard_size_tile_container::TILE_COUNT as u32 {
             return Err(TileWriteError::MaximumTilesReached);
         }
-        self.file.write(&tile.bytes()).map_err(TileWriteError::IOError)?;
+        self.file.write(tile.as_raw()).map_err(TileWriteError::IOError)?;
         self.tile_count += 1;
         Ok(())
     }
