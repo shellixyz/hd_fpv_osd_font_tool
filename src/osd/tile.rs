@@ -180,6 +180,10 @@ impl Tile {
         self.kind
     }
 
+    pub fn image(&self) -> &Image {
+        &self.image
+    }
+
 }
 
 impl TryFrom<Bytes> for Tile {
