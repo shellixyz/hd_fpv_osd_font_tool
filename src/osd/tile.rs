@@ -142,7 +142,7 @@ impl Error for LoadError {}
 pub type Bytes = Vec<u8>;
 pub type Image = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-#[derive(Deref,DerefMut,Clone)]
+#[derive(Deref, DerefMut, Clone, Debug)]
 pub struct Tile {
     kind: Kind,
 

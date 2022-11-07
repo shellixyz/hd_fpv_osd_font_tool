@@ -8,7 +8,7 @@ use std::fs::File;
 use close_err::Closable;
 use strum::IntoEnumIterator;
 
-use super::tile::{self, Tile, grid::TileGrid, containers::StandardSizeArray};
+use super::tile::{self, Tile, grid::StandardSizeGrid, containers::StandardSizeArray};
 
 const TILE_COUNT: u32 = 256;
 
@@ -208,8 +208,8 @@ impl BinFileReader {
         self.pos >= TILE_COUNT
     }
 
-    pub fn tile_grid(&mut self) -> Result<TileGrid, SeekReadError> {
-        TileGrid::try_from(self)
+    pub fn tile_grid(&mut self) -> Result<StandardSizeGrid, SeekReadError> {
+        StandardSizeGrid::try_from(self)
     }
 
     pub fn tile_array(&mut self) -> Result<StandardSizeArray, SeekReadError> {

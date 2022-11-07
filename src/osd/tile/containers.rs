@@ -1,14 +1,17 @@
 
-use std::{path::{Path, PathBuf}, fmt::Display, error::Error};
+use std::{path::Path, fmt::Display, error::Error};
 
-use super::{Tile, TileIter, grid::TileGrid, LoadError as TileLoadError, Kind as TileKind};
+use super::{Tile, TileIter, grid::StandardSizeGrid, LoadError as TileLoadError, Kind as TileKind};
 use crate::osd::bin_file::{BinFileReader, SeekReadError as BinFileSeekReadError};
 use array_macro::array;
 use derive_more::Index;
+use paste::paste;
 
 
 pub const STANDARD_TILE_COUNT: usize = 256;
+pub const EXTENDED_TILE_COUNT: usize = STANDARD_TILE_COUNT * 2;
 pub trait StandardSizeContainer {}
+pub trait ExtendedSizeContainer {}
 
 #[derive(Debug)]
 pub enum LoadFromDirError {
@@ -36,40 +39,25 @@ impl From<TileLoadError> for LoadFromDirError {
 }
 
 #[derive(Debug)]
-pub struct WrongTileKindError(TileKind);
-impl Error for WrongTileKindError {}
+pub struct TileKindMismatchError { pub container_tile_kind: TileKind, pub received_tile_kind: TileKind }
+impl Error for TileKindMismatchError {}
 
-impl Display for WrongTileKindError {
+impl Display for TileKindMismatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "wrong tile kind: {:?}", self.0)
+        write!(f, "mismatched tile kind: container is for {} tile kind, received {} tile kind ", self.container_tile_kind, self.received_tile_kind)
     }
 }
 
-type StandardSizeArrayInner = [Tile; STANDARD_TILE_COUNT];
+mod array_utils {
+    use std::{path::{Path, PathBuf}, fmt::Display};
+    use crate::osd::tile::Tile;
+    use super::{LoadFromDirError, TileLoadError};
 
-#[derive(Index)]
-pub struct StandardSizeArray(pub(crate) StandardSizeArrayInner);
-
-impl StandardSizeContainer for StandardSizeArray {}
-impl StandardSizeContainer for &StandardSizeArray {}
-
-impl StandardSizeArray {
-
-    pub fn new(tile_kind: TileKind) -> Self {
-        Self(array![Tile::new(tile_kind); STANDARD_TILE_COUNT])
-    }
-
-    pub fn into_grid(self) -> TileGrid {
-        TileGrid::from(self)
-    }
-
-    // Load at most 256 tiles from the specified directory, all the tiles must be of the same kind.
-    // The name of the files must be in the format "{:03}.png"
-    pub fn load_from_dir<P: AsRef<Path> + Display>(path: P) -> Result<Self, LoadFromDirError> {
-        let mut tiles = array![None; STANDARD_TILE_COUNT];
+    pub(super) fn load_from_dir<P: AsRef<Path> + Display>(path: P, tile_count: usize) -> Result<Vec<Tile>, LoadFromDirError> {
+        let mut tiles = vec![];
         let mut tile_kind = None;
 
-        for (index, array_tile) in tiles.iter_mut().enumerate() {
+        for index in 0..tile_count {
             let tile_path: PathBuf = [path.as_ref().to_str().unwrap(), &format!("{:03}.png", index)].iter().collect();
             let tile = match Tile::load_image_file(tile_path) {
                 Ok(loaded_tile) => Some(loaded_tile),
@@ -100,81 +88,167 @@ impl StandardSizeArray {
                 _ => {}
             }
 
-            *array_tile = tile;
+            tiles.push(tile);
         }
 
         let tiles = match tile_kind {
-            Some(tile_kind) => tiles.map(|tile| tile.unwrap_or_else(|| Tile::new(tile_kind))),
+            Some(tile_kind) => tiles.into_iter().map(|tile| tile.unwrap_or_else(|| Tile::new(tile_kind))).collect(),
             None => return Err(LoadFromDirError::NoTileFound),
         };
 
-        Ok(Self(tiles))
+        Ok(tiles)
     }
 
+}
+
+pub trait GetTileKind {
     // returns the kind of tiles this container can store
-    pub fn tile_kind(&self) -> TileKind {
-        // we can just return the kind of the first tile since the container can only contain one kind of tile
-        self.0[0].kind()
-    }
+    fn tile_kind(&self) -> TileKind;
+}
 
-    pub fn replace_tile(&mut self, index: usize, tile: Tile) -> Result<(), WrongTileKindError> {
-        if self.tile_kind() != tile.kind() {
-            return Err(WrongTileKindError(tile.kind()));
+pub trait ReplaceTile: GetTileKind {
+    fn replace_tile(&mut self, index: usize, tile: Tile) -> Result<(), TileKindMismatchError>;
+}
+
+macro_rules! container {
+    ($type_name:ident, $size_ident_trait:ty, $size:expr) => {
+
+        paste! {
+            type [<$type_name Inner>] = [Tile; $size];
+
+            #[derive(Index)]
+            pub struct $type_name(pub(crate) [<$type_name Inner>]);
         }
-        self.0[index] = tile;
-        Ok(())
-    }
 
-    pub fn iter(&self) -> TileIter<Self> {
-        self.into_iter()
+        impl $size_ident_trait for $type_name {}
+        impl $size_ident_trait for &$type_name {}
+
+        impl $type_name {
+
+            pub fn new(tile_kind: TileKind) -> Self {
+                Self(array![Tile::new(tile_kind); $size])
+            }
+
+            pub fn into_grid(self) -> StandardSizeGrid {
+                StandardSizeGrid::from(self)
+            }
+
+            paste! {
+                // Load at most 256 tiles from the specified directory, all the tiles must be of the same kind.
+                // The name of the files must be in the format "{:03}.png"
+                pub fn load_from_dir<P: AsRef<Path> + Display>(path: P) -> Result<Self, LoadFromDirError> {
+                    let tiles = array_utils::load_from_dir(path, $size)?;
+                    Ok(Self([<$type_name Inner>]::try_from(tiles).unwrap()))
+                }
+            }
+
+            pub fn iter(&self) -> TileIter<Self> {
+                self.into_iter()
+            }
+
+        }
+
+        impl GetTileKind for $type_name {
+
+            fn tile_kind(&self) -> TileKind {
+                // we can just return the kind of the first tile since the container can only contain one kind of tile
+                self.0[0].kind()
+            }
+
+        }
+
+        impl ReplaceTile for $type_name {
+
+            fn replace_tile(&mut self, index: usize, tile: Tile) -> Result<(), TileKindMismatchError> {
+                if self.tile_kind() != tile.kind() {
+                    return Err(TileKindMismatchError { container_tile_kind: self.tile_kind(), received_tile_kind: tile.kind() });
+                }
+                self.0[index] = tile;
+                Ok(())
+            }
+
+        }
+
+        // impl Iterator for TileIntoIter<StandardSizeTileArray> {
+        //     type Item = Tile;
+
+        //     fn next(&mut self) -> Option<Self::Item> {
+        //         if self.index >= TILE_COUNT {
+        //             return None;
+        //         }
+        //         let tile = self.container.0[self.index].clone();
+        //         self.index += 1;
+        //         Some(tile)
+        //     }
+        // }
+
+        impl<'a> Iterator for TileIter<'a, $type_name> {
+            type Item = &'a Tile;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.index >= $size {
+                    return None;
+                }
+                let tile = &self.container.0[self.index];
+                self.index += 1;
+                Some(tile)
+            }
+        }
+
+        // impl IntoIterator for StandardSizeTileArray {
+        //     type Item = Tile;
+
+        //     type IntoIter = TileIntoIter<Self>;
+
+        //     fn into_iter(self) -> Self::IntoIter {
+        //         Self::IntoIter { container: self, index: 0 }
+        //     }
+        // }
+
+        impl<'a> IntoIterator for &'a $type_name {
+            type Item = &'a Tile;
+
+            type IntoIter = TileIter<'a, $type_name>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                Self::IntoIter { container: self, index: 0 }
+            }
+        }
+
+    };
+}
+
+container!(StandardSizeArray, StandardSizeContainer, STANDARD_TILE_COUNT);
+container!(ExtendedSizeArray, ExtendedSizeContainer, EXTENDED_TILE_COUNT);
+
+impl StandardSizeArray {
+
+    pub fn extend(self, other: Self) -> Result<ExtendedSizeArray, TileKindMismatchError> {
+        if self.tile_kind() != other.tile_kind() {
+            return Err(TileKindMismatchError { container_tile_kind: self.tile_kind(), received_tile_kind: other.tile_kind() });
+        }
+        let mut array = ExtendedSizeArray::new(self.tile_kind());
+        let tiles = self.0.into_iter().chain(other.0.into_iter()).collect::<Vec<Tile>>();
+        array.0.clone_from_slice(&tiles);
+        Ok(array)
     }
 
 }
 
-// impl Iterator for TileIntoIter<StandardSizeTileArray> {
-//     type Item = Tile;
+impl ExtendedSizeArray {
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.index >= TILE_COUNT {
-//             return None;
-//         }
-//         let tile = self.container.0[self.index].clone();
-//         self.index += 1;
-//         Some(tile)
-//     }
-// }
-
-impl<'a> Iterator for TileIter<'a, StandardSizeArray> {
-    type Item = &'a Tile;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= STANDARD_TILE_COUNT {
-            return None;
-        }
-        let tile = &self.container.0[self.index];
-        self.index += 1;
-        Some(tile)
+    pub fn first_half(&self) -> StandardSizeArray {
+        let mut array = StandardSizeArray::new(self.tile_kind());
+        array.0.clone_from_slice(&self.0[0..STANDARD_TILE_COUNT]);
+        array
     }
-}
 
-// impl IntoIterator for StandardSizeTileArray {
-//     type Item = Tile;
-
-//     type IntoIter = TileIntoIter<Self>;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         Self::IntoIter { container: self, index: 0 }
-//     }
-// }
-
-impl<'a> IntoIterator for &'a StandardSizeArray {
-    type Item = &'a Tile;
-
-    type IntoIter = TileIter<'a, StandardSizeArray>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter { container: self, index: 0 }
+    pub fn second_half(&self) -> StandardSizeArray {
+        let mut array = StandardSizeArray::new(self.tile_kind());
+        array.0.clone_from_slice(&self.0[STANDARD_TILE_COUNT..EXTENDED_TILE_COUNT]);
+        array
     }
+
 }
 
 impl TryFrom<&mut BinFileReader> for StandardSizeArray {
@@ -192,8 +266,8 @@ impl TryFrom<&mut BinFileReader> for StandardSizeArray {
     }
 }
 
-impl From<&TileGrid> for StandardSizeArray {
-    fn from(tile_grid: &TileGrid) -> Self {
+impl From<&StandardSizeGrid> for StandardSizeArray {
+    fn from(tile_grid: &StandardSizeGrid) -> Self {
         let mut array = Self::new(tile_grid.tile_kind());
         let mut tile_grid_iterator = tile_grid.iter();
         for tile in &mut array.0 {

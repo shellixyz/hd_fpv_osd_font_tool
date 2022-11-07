@@ -7,7 +7,7 @@ use std::process::exit;
 use clap::{Parser, Subcommand};
 
 use hd_fpv_osd_font_tool::osd::{
-    bin_file::BinFileReader, SaveTilesToDir, tile::grid::TileGrid, SaveTilesToBinFile,
+    bin_file::BinFileReader, SaveTilesToDir, tile::grid::StandardSizeGrid, SaveTilesToBinFile,
     tile::containers::StandardSizeArray
 };
 
@@ -163,7 +163,7 @@ fn convert_command<'a>(from: &'a String, to: &'a String) -> Result<(), ConvertEr
 
         (TileGrid(from_path), to_arg) => {
             check_arg_image_file_extension(from_path).map_err(ConvertError::FromArg)?;
-            let tile_grid = crate::TileGrid::load_from_image(from_path).unwrap();
+            let tile_grid = crate::StandardSizeGrid::load_from_image(from_path).unwrap();
             match to_arg {
                 BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path).unwrap(),
                 TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path).unwrap(),
