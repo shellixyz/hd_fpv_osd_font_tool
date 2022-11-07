@@ -8,9 +8,7 @@ use std::fs::File;
 use close_err::Closable;
 use strum::IntoEnumIterator;
 
-use crate::osd::standard_size_tile_container;
-use super::tile::{self, Tile, grid::TileGrid};
-use super::standard_size_tile_container::StandardSizeTileArray;
+use super::tile::{self, Tile, grid::TileGrid, containers::StandardSizeTileArray};
 
 const TILE_COUNT: u32 = 256;
 
@@ -237,8 +235,8 @@ impl Display for TileWriteError {
         use TileWriteError::*;
         match self {
             IOError(io_error) => io_error.fmt(f),
-            MaximumTilesReached => write!(f, "Maximum number of tiles reached: a bin file can only contain {} tiles maximum", standard_size_tile_container::TILE_COUNT),
-            NotEnoughTiles(_) => write!(f, "Not enough tiles, a bin file must contain exactly {} tiles", standard_size_tile_container::TILE_COUNT),
+            MaximumTilesReached => write!(f, "Maximum number of tiles reached: a bin file can only contain {} tiles maximum", tile::containers::STANDARD_TILE_COUNT),
+            NotEnoughTiles(_) => write!(f, "Not enough tiles, a bin file must contain exactly {} tiles", tile::containers::STANDARD_TILE_COUNT),
         }
     }
 }
@@ -259,7 +257,7 @@ impl BinFileWriter {
     }
 
     pub fn write_tile(&mut self, tile: &Tile) -> Result<(), TileWriteError> {
-        if self.tile_count >= standard_size_tile_container::TILE_COUNT as u32 {
+        if self.tile_count >= tile::containers::STANDARD_TILE_COUNT as u32 {
             return Err(TileWriteError::MaximumTilesReached);
         }
         self.file.write(tile.as_raw()).map_err(TileWriteError::IOError)?;
@@ -268,7 +266,7 @@ impl BinFileWriter {
     }
 
     pub fn finish(self) -> Result<(), TileWriteError> {
-        if self.tile_count < standard_size_tile_container::TILE_COUNT as u32 {
+        if self.tile_count < tile::containers::STANDARD_TILE_COUNT as u32 {
             return Err(TileWriteError::NotEnoughTiles(self));
         }
         self.file.close().map_err(TileWriteError::IOError)?;

@@ -8,7 +8,7 @@ use clap::{Parser, Subcommand};
 
 use hd_fpv_osd_font_tool::osd::{
     bin_file::BinFileReader, SaveTilesToDir, tile::grid::TileGrid, SaveTilesToBinFile,
-    standard_size_tile_container::StandardSizeTileArray
+    tile::containers::StandardSizeTileArray
 };
 
 use hd_fpv_osd_font_tool::log_level::LogLevel;

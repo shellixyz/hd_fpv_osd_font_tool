@@ -12,6 +12,7 @@ use image::error::ImageError;
 use super::bin_file::BinFileReader;
 
 pub mod grid;
+pub mod containers;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dimensions {

@@ -1,18 +1,18 @@
 
 use std::{path::{Path, PathBuf}, fmt::Display, error::Error};
 
-use super::{tile::{Tile, TileIter, grid::TileGrid, self}, bin_file::BinFileReader};
-use super::bin_file::SeekReadError as BinFileSeekReadError;
+use super::{Tile, TileIter, grid::TileGrid, LoadError as TileLoadError, Kind as TileKind};
+use crate::osd::bin_file::{BinFileReader, SeekReadError as BinFileSeekReadError};
 use array_macro::array;
 use derive_more::Index;
 
 
-pub const TILE_COUNT: usize = 256;
+pub const STANDARD_TILE_COUNT: usize = 256;
 pub trait StandardSizeTileContainer {}
 
 #[derive(Debug)]
 pub enum LoadFromDirError {
-    LoadError(tile::LoadError),
+    LoadError(TileLoadError),
     NoTileFound,
     KindMismatchError
 }
@@ -29,14 +29,14 @@ impl Display for LoadFromDirError {
     }
 }
 
-impl From<tile::LoadError> for LoadFromDirError {
-    fn from(load_error: tile::LoadError) -> Self {
+impl From<TileLoadError> for LoadFromDirError {
+    fn from(load_error: TileLoadError) -> Self {
         Self::LoadError(load_error)
     }
 }
 
 #[derive(Debug)]
-pub struct WrongTileKindError(tile::Kind);
+pub struct WrongTileKindError(TileKind);
 impl Error for WrongTileKindError {}
 
 impl Display for WrongTileKindError {
@@ -45,7 +45,7 @@ impl Display for WrongTileKindError {
     }
 }
 
-type StandardSizeTileArrayInner = [Tile; TILE_COUNT];
+type StandardSizeTileArrayInner = [Tile; STANDARD_TILE_COUNT];
 
 #[derive(Index)]
 pub struct StandardSizeTileArray(pub(crate) StandardSizeTileArrayInner);
@@ -55,8 +55,8 @@ impl StandardSizeTileContainer for &StandardSizeTileArray {}
 
 impl StandardSizeTileArray {
 
-    pub fn new(tile_kind: tile::Kind) -> Self {
-        Self(array![Tile::new(tile_kind); TILE_COUNT])
+    pub fn new(tile_kind: TileKind) -> Self {
+        Self(array![Tile::new(tile_kind); STANDARD_TILE_COUNT])
     }
 
     pub fn into_grid(self) -> TileGrid {
@@ -66,7 +66,7 @@ impl StandardSizeTileArray {
     // Load at most 256 tiles from the specified directory, all the tiles must be of the same kind.
     // The name of the files must be in the format "{:03}.png"
     pub fn load_from_dir<P: AsRef<Path> + std::fmt::Display>(path: P) -> Result<Self, LoadFromDirError> {
-        let mut tiles = array![None; TILE_COUNT];
+        let mut tiles = array![None; STANDARD_TILE_COUNT];
         let mut tile_kind = None;
 
         for (index, array_tile) in tiles.iter_mut().enumerate() {
@@ -75,7 +75,7 @@ impl StandardSizeTileArray {
                 Ok(loaded_tile) => Some(loaded_tile),
                 Err(error) =>
                     match &error {
-                        tile::LoadError::IOError(io_error) =>
+                        TileLoadError::IOError(io_error) =>
                             match io_error.kind() {
                                 std::io::ErrorKind::NotFound => None,
                                 _ => return Err(error.into()),
@@ -112,7 +112,7 @@ impl StandardSizeTileArray {
     }
 
     // returns the kind of tiles this container can store
-    pub fn tile_kind(&self) -> tile::Kind {
+    pub fn tile_kind(&self) -> TileKind {
         // we can just return the kind of the first tile since the container can only contain one kind of tile
         self.0[0].kind()
     }
@@ -148,7 +148,7 @@ impl<'a> Iterator for TileIter<'a, StandardSizeTileArray> {
     type Item = &'a Tile;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= TILE_COUNT {
+        if self.index >= STANDARD_TILE_COUNT {
             return None;
         }
         let tile = &self.container.0[self.index];

@@ -1,13 +1,12 @@
 pub mod tile;
 pub mod bin_file;
-pub mod standard_size_tile_container;
 
 use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 
 use image::ImageError;
 
-use self::{tile::Tile, bin_file::BinFileWriter, standard_size_tile_container::StandardSizeTileContainer};
+use self::{tile::{Tile, containers::StandardSizeTileContainer}, bin_file::BinFileWriter};
 
 pub trait SaveTilesToDir {
     fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), ImageError>;

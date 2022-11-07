@@ -10,9 +10,9 @@ use image::io::Reader as ImageReader;
 use strum::IntoEnumIterator;
 
 use super::{Tile, TileIter};
-use crate::osd::standard_size_tile_container::{self, StandardSizeTileArray, StandardSizeTileContainer};
+// use crate::osd::standard_size_tile_container::{self, StandardSizeTileArray, StandardSizeTileContainer};
 use crate::osd::bin_file::{BinFileReader, SeekReadError as BinFileSeekReadError};
-use crate::osd::tile;
+use crate::osd::tile::{self, containers::{self, StandardSizeTileArray, StandardSizeTileContainer}};
 
 #[derive(Debug)]
 pub struct InvalidImageDimensionsError;
@@ -104,7 +104,7 @@ impl TileGrid {
     }
 
     pub fn index_linear_to_grid(index: usize) -> (usize, usize) {
-        assert!(index < standard_size_tile_container::TILE_COUNT);
+        assert!(index < containers::STANDARD_TILE_COUNT);
         (index % DIMENSIONS.width, index / DIMENSIONS.width)
     }
 
@@ -117,7 +117,7 @@ impl TileGrid {
         self.0.tile_kind()
     }
 
-    pub fn replace_tile(&mut self, x: usize, y: usize, tile: Tile) -> Result<(), standard_size_tile_container::WrongTileKindError> {
+    pub fn replace_tile(&mut self, x: usize, y: usize, tile: Tile) -> Result<(), containers::WrongTileKindError> {
         self.0.replace_tile(Self::grid_coordinates_to_index(x, y), tile)
     }
 
@@ -211,7 +211,7 @@ impl StandardSizeTileContainer for &TileGrid {}
 //     type Item = Tile;
 
 //     fn next(&mut self) -> Option<Self::Item> {
-//         if self.index >= standard_size_tile_container::TILE_COUNT {
+//         if self.index >= containers::STANDARD_TILE_COUNT {
 //             return None;
 //         }
 //         let tile = self.container.0[self.index];
@@ -224,7 +224,7 @@ impl<'a> Iterator for TileIter<'a, TileGrid> {
     type Item = &'a Tile;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= standard_size_tile_container::TILE_COUNT {
+        if self.index >= containers::STANDARD_TILE_COUNT {
             return None;
         }
         let tile = &self.container.0[self.index];
