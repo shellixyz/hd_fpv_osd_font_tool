@@ -139,6 +139,7 @@ impl From<InvalidSizeError> for LoadError {
 impl Error for LoadError {}
 
 pub type Bytes = Vec<u8>;
+pub type Image = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
 #[derive(Deref,DerefMut,Clone)]
 pub struct Tile {
@@ -146,20 +147,20 @@ pub struct Tile {
 
     #[deref]
     #[deref_mut]
-    buffer: ImageBuffer<Rgba<u8>, Vec<u8>>,
+    image: Image,
 }
 
 impl Tile {
 
     pub fn new(kind: Kind) -> Self {
         let Dimensions { width, height } = kind.dimensions();
-        Self { kind, buffer: ImageBuffer::new(width, height)}
+        Self { kind, image: ImageBuffer::new(width, height)}
     }
 
     pub fn load_image_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadError> {
         let image = ImageReader::open(path)?.decode()?;
         let kind = Kind::try_from(Dimensions::from(image.dimensions()))?;
-        Ok(Self { kind, buffer: image.into_rgba8() })
+        Ok(Self { kind, image: image.into_rgba8() })
     }
 
     pub fn read_from_bin_file(file: &mut BinFileReader) -> Result<Self, LoadError> {
@@ -186,7 +187,7 @@ impl TryFrom<Bytes> for Tile {
 
     fn try_from(bytes: Bytes) -> Result<Self, Self::Error> {
         let kind = Kind::for_size_bytes(bytes.len())?;
-        Ok(Self { kind, buffer: ImageBuffer::from_raw(kind.dimensions().width, kind.dimensions().height, bytes).unwrap() })
+        Ok(Self { kind, image: ImageBuffer::from_raw(kind.dimensions().width, kind.dimensions().height, bytes).unwrap() })
     }
 }
 
@@ -197,7 +198,7 @@ impl TryFrom<ImageBuffer<Rgba<u8>, Vec<u8>>> for Tile {
         let (width, height) = sub_image.dimensions();
         let kind = Kind::try_from(Dimensions { width, height })?;
         let mut tile = Self::new(kind);
-        tile.buffer.copy_from(&sub_image, 0, 0).unwrap();
+        tile.image.copy_from(&sub_image, 0, 0).unwrap();
         Ok(tile)
     }
 }
