@@ -9,6 +9,7 @@ use derive_more::{From, Error};
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
+use super::tile::container::{TileKindError, UniqTileKind};
 use super::tile::{self, Tile, Kind as TileKind};
 
 pub const TILE_COUNT: usize = 256;
@@ -79,7 +80,7 @@ pub enum SeekReadError {
 pub enum LoadError {
     IOError(IOError),
     OpenError(OpenError),
-    #[from(ignore)]
+    TileKindError(TileKindError),
     WrongSizeError,
 }
 
@@ -90,6 +91,7 @@ impl Display for LoadError {
             IOError(error) => error.fmt(f),
             OpenError(error) => error.fmt(f),
             WrongSizeError => f.write_str("File size does not match a valid bin file size"),
+            TileKindError(error) => error.fmt(f),
         }
     }
 }
@@ -216,6 +218,13 @@ impl IntoIterator for BinFileReader {
 
 pub fn load<P: AsRef<Path> + Display>(path: P) -> Result<Vec<Tile>, LoadError> {
     Ok(BinFileReader::open(path)?.read_tiles()?)
+}
+
+pub fn load_extended<P: AsRef<Path> + Display>(base_path: P, ext_path: P) -> Result<Vec<Tile>, LoadError> {
+    let mut tiles = load(base_path)?;
+    tiles.append(&mut load(ext_path)?);
+    tiles.tile_kind()?;
+    Ok(tiles)
 }
 
 #[derive(Debug, From)]
