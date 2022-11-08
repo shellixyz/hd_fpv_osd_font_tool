@@ -1,3 +1,4 @@
+
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
@@ -5,23 +6,28 @@ use std::io::Error as IOError;
 use derive_more::{Error, Display, From};
 use image::ImageError;
 
-use crate::osd::bin_file::{BinFileWriter, self, TileWriteError};
+use crate::osd::bin_file::{BinFileWriter, self, TileWriteError, FillRemainingSpaceError};
 
 use super::Tile;
 use super::LoadError as TileLoadError;
 use super::grid::Grid as TileGrid;
 
+#[derive(Debug, Error, Display, From)]
+pub enum SaveTilesToDirError {
+    IOError(IOError),
+    ImageError(ImageError),
+}
 
 pub trait SaveTilesToDir {
-    fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), ImageError>;
+    fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), SaveTilesToDirError>;
 }
 
 impl<T> SaveTilesToDir for T
 where
     for<'any> &'any T: IntoIterator<Item = &'any Tile>,
 {
-    fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), ImageError> {
-        std::fs::create_dir_all(&path).unwrap();
+    fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), SaveTilesToDirError> {
+        std::fs::create_dir_all(&path)?;
 
         for (index, tile) in self.into_iter().enumerate() {
             let path: PathBuf = [path.as_ref().to_str().unwrap(), &format!("{:03}.png", index)].iter().collect();
@@ -42,7 +48,7 @@ impl Display for TileKindError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TileKindError::*;
         match self {
-            EmptyContainer => f.write_str("cannot create grid with empty container"),
+            EmptyContainer => f.write_str("cannot determine tile kind from empty container"),
             MultipleTileKinds => f.write_str("container includes multiple tile kinds"),
         }
     }
@@ -73,6 +79,7 @@ pub enum SaveTilesToBinFileError {
     CreateError(IOError),
     TileKindError(TileKindError),
     TileWriteError(TileWriteError),
+    FillRemainingSpaceError(FillRemainingSpaceError)
 }
 
 pub trait SaveTilesToBinFile {
@@ -88,8 +95,8 @@ impl SaveTilesToBinFile for &[Tile] {
             writer.write_tile(tile)?;
         }
 
+        writer.fill_remaining_space()?;
         writer.finish()?;
-
         Ok(())
     }
 }
@@ -152,15 +159,14 @@ pub fn load_from_dir<P: AsRef<Path> + Display>(path: P, tile_count: usize) -> Re
         let tile_path: PathBuf = [path.as_ref().to_str().unwrap(), &format!("{:03}.png", index)].iter().collect();
         let tile = match Tile::load_image_file(tile_path) {
             Ok(loaded_tile) => Some(loaded_tile),
-            Err(error) =>
-                match &error {
-                    TileLoadError::IOError(io_error) =>
-                        match io_error.kind() {
-                            std::io::ErrorKind::NotFound => None,
-                            _ => return Err(error.into()),
-                        },
-                    _ => return Err(error.into())
-                },
+            Err(error) => match &error {
+                TileLoadError::IOError(io_error) =>
+                    match io_error.kind() {
+                        std::io::ErrorKind::NotFound => None,
+                        _ => return Err(error.into()),
+                    },
+                _ => return Err(error.into())
+            },
         };
 
         match (&tile, &tile_kind) {
@@ -171,19 +177,23 @@ pub fn load_from_dir<P: AsRef<Path> + Display>(path: P, tile_count: usize) -> Re
                 tile_kind = Some(tile.kind());
             },
 
-            // we have already loaded a tile before, check that the new tile kind is matching what had been recorded
+            // we have already loaded a tile before, check that the new tile kind is matching what had recorded
             (Some(tile), Some(tile_kind)) => if tile.kind() != *tile_kind {
                 return Err(LoadFromDirError::KindMismatchError)
             },
 
             _ => {}
+
         }
 
         tiles.push(tile);
     }
 
     let tiles = match tile_kind {
-        Some(tile_kind) => tiles.into_iter().map(|tile| tile.unwrap_or_else(|| Tile::new(tile_kind))).collect(),
+        Some(tile_kind) => {
+            let last_some_index = tiles.iter().rposition(Option::is_some).unwrap();
+            tiles[0..=last_some_index].iter().map(|tile| tile.clone().unwrap_or_else(|| Tile::new(tile_kind))).collect()
+        }
         None => return Err(LoadFromDirError::NoTileFound),
     };
 

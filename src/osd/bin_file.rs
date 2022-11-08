@@ -9,7 +9,7 @@ use derive_more::{From, Error};
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
-use super::tile::{self, Tile};
+use super::tile::{self, Tile, Kind as TileKind};
 
 pub const TILE_COUNT: usize = 256;
 
@@ -218,9 +218,15 @@ pub fn load<P: AsRef<Path> + Display>(path: P) -> Result<Vec<Tile>, LoadError> {
     Ok(BinFileReader::open(path)?.read_tiles()?)
 }
 
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub enum TileWriteError {
     IOError(IOError),
+    #[from(ignore)]
+    TileKindMismatchError {
+        written_kind: TileKind,
+        writing_kind: TileKind
+    },
+    #[from(ignore)]
     MaximumTilesReached,
     NotEnoughTiles(BinFileWriter)
 }
@@ -234,6 +240,25 @@ impl Display for TileWriteError {
             IOError(io_error) => io_error.fmt(f),
             MaximumTilesReached => write!(f, "Maximum number of tiles reached: a bin file can only contain {} tiles maximum", TILE_COUNT),
             NotEnoughTiles(_) => write!(f, "Not enough tiles, a bin file must contain exactly {} tiles", TILE_COUNT),
+            TileKindMismatchError { written_kind, writing_kind } =>
+                write!(f, "Already written tiles of kind {} and trying to now write tiles of kind {}", written_kind, writing_kind),
+        }
+    }
+}
+
+#[derive(Debug, Error, From)]
+pub enum FillRemainingSpaceError {
+    TileWrite(TileWriteError),
+    #[from(ignore)]
+    Empty
+}
+
+impl Display for FillRemainingSpaceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use FillRemainingSpaceError::*;
+        match self {
+            TileWrite(error) => error.fmt(f),
+            Empty => f.write_str("bin file is empty, cannot determine tile kind to write"),
         }
     }
 }
@@ -241,7 +266,8 @@ impl Display for TileWriteError {
 #[derive(Debug)]
 pub struct BinFileWriter {
     file: File,
-    tile_count: u32
+    tile_count: usize,
+    tile_kind: Option<TileKind>,
 }
 
 impl BinFileWriter {
@@ -249,21 +275,41 @@ impl BinFileWriter {
     pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, IOError> {
         Ok(Self {
             file: File::create(path)?,
-            tile_count: 0
+            tile_count: 0,
+            tile_kind: None
         })
     }
 
     pub fn write_tile(&mut self, tile: &Tile) -> Result<(), TileWriteError> {
-        if self.tile_count >= TILE_COUNT as u32 {
+        if self.tile_count >= TILE_COUNT {
             return Err(TileWriteError::MaximumTilesReached);
         }
-        self.file.write(tile.as_raw()).map_err(TileWriteError::IOError)?;
+        match self.tile_kind {
+            Some(tile_kind) => if tile_kind != tile.kind() {
+                return Err(TileWriteError::TileKindMismatchError { written_kind: tile_kind, writing_kind: tile.kind() })
+            },
+            None => self.tile_kind = Some(tile.kind()),
+        }
+        self.file.write_all(tile.as_raw())?;
         self.tile_count += 1;
         Ok(())
     }
 
+    pub fn fill_remaining_space(&mut self) -> Result<(), FillRemainingSpaceError> {
+        match self.tile_kind {
+            Some(tile_kind) => {
+                let transparent_tile = Tile::new(tile_kind);
+                for _ in self.tile_count..TILE_COUNT {
+                    self.write_tile(&transparent_tile)?;
+                }
+            },
+            None => return Err(FillRemainingSpaceError::Empty),
+        }
+        Ok(())
+    }
+
     pub fn finish(self) -> Result<(), TileWriteError> {
-        if self.tile_count < TILE_COUNT as u32 {
+        if self.tile_count < TILE_COUNT {
             return Err(TileWriteError::NotEnoughTiles(self));
         }
         self.file.close().map_err(TileWriteError::IOError)?;

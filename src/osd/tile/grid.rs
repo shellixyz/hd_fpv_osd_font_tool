@@ -1,5 +1,4 @@
 
-use std::error::Error;
 use std::fmt::Display;
 use std::ops::Index;
 use std::path::Path;
@@ -15,9 +14,8 @@ use super::container::{UniqTileKind, TileKindError};
 use crate::dimensions;
 use crate::osd::tile;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub struct InvalidImageDimensionsError;
-impl Error for InvalidImageDimensionsError {}
 
 impl Display for InvalidImageDimensionsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -112,7 +110,7 @@ impl Grid {
         }
     }
 
-    pub fn image(&self) -> Result<Image, TileKindError> {
+    pub fn generate_image(&self) -> Result<Image, TileKindError> {
         let tile_kind = self.0.tile_kind()?;
         let img_dim = Self::image_dimensions(&tile_kind, self.height());
         let mut image = Image::from_pixel(img_dim.width(), img_dim.height(), Rgba::from([0, 0, 0, 255]));

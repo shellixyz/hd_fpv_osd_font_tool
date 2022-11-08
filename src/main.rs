@@ -154,7 +154,7 @@ fn convert_command<'a>(from: &'a String, to: &'a String) -> Result<(), ConvertEr
             match to_arg {
                 TileGrid(to_path) => {
                     check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-                    bin_file_tiles.into_tile_grid().image().unwrap().save(to_path).unwrap()
+                    bin_file_tiles.into_tile_grid().generate_image().unwrap().save(to_path).unwrap()
                 },
                 TileDir(to_path) => bin_file_tiles.save_tiles_to_dir(to_path).unwrap(),
                 _ => unreachable!()
@@ -177,7 +177,7 @@ fn convert_command<'a>(from: &'a String, to: &'a String) -> Result<(), ConvertEr
                 BinFile(to_path) => tile_array.save_tiles_to_bin_file(to_path).unwrap(),
                 TileGrid(to_path) => {
                     check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-                    tile_array.into_tile_grid().image().unwrap().save(to_path).unwrap()
+                    tile_array.into_tile_grid().generate_image().unwrap().save(to_path).unwrap()
                 },
                 _ => unreachable!()
             }
