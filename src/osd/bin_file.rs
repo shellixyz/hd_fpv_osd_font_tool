@@ -2,20 +2,21 @@
 use std::path::Path;
 use std::io::{Read, Seek, Write, Error as IOError};
 use std::fmt::Display;
-use std::error::Error;
 use std::fs::File;
 
 use close_err::Closable;
-use strum::IntoEnumIterator;
+use derive_more::{From, Error};
+use getset::Getters;
+use strum::{IntoEnumIterator, Display};
 
-use super::tile::{self, Tile, grid::StandardSizeGrid, containers::StandardSizeArray};
+use super::tile::{self, Tile};
 
-const TILE_COUNT: u32 = 256;
+pub const TILE_COUNT: usize = 256;
 
 impl tile::Kind {
 
     pub fn bin_file_size_bytes(&self) -> usize {
-        self.raw_rgba_size_bytes() * TILE_COUNT as usize
+        self.raw_rgba_size_bytes() * TILE_COUNT
     }
 
     pub fn for_bin_file_size_bytes(bytes: usize) -> Result<Self, tile::InvalidSizeError> {
@@ -29,31 +30,30 @@ impl tile::Kind {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, From, Error)]
 pub enum OpenError {
     IOError(IOError),
-    WrongSizeError
+    #[from(ignore)]
+    InvalidSizeError
 }
-
-impl Error for OpenError {}
 
 impl Display for OpenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use OpenError::*;
         match self {
             IOError(io_error) => io_error.fmt(f),
-            WrongSizeError => f.write_str("File size does not match a valid bin file size"),
+            InvalidSizeError => f.write_str("File size does not match a valid bin file size"),
         }
     }
 }
 
 impl From<tile::InvalidSizeError> for OpenError {
     fn from(_: tile::InvalidSizeError) -> Self {
-        OpenError::WrongSizeError
+        OpenError::InvalidSizeError
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SeekError {
     IOError(IOError),
     OutOfBoundsError
@@ -69,81 +69,46 @@ impl Display for SeekError {
     }
 }
 
-impl Error for SeekError {}
-
-#[derive(Debug)]
+#[derive(Debug, From, Error, Display)]
 pub enum SeekReadError {
     SeekError(SeekError),
     IOError(IOError)
 }
 
-impl Error for SeekReadError {}
-
-impl Display for SeekReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use SeekReadError::*;
-        match self {
-            SeekError(seek_error) => seek_error.fmt(f),
-            IOError(io_error) => io_error.fmt(f),
-        }
-    }
-}
-
-impl From<IOError> for SeekReadError {
-    fn from(io_error: IOError) -> Self {
-        Self::IOError(io_error)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, From, Error)]
 pub enum LoadError {
     IOError(IOError),
+    OpenError(OpenError),
+    #[from(ignore)]
     WrongSizeError,
-    SeekError(SeekError),
 }
-
-impl Error for LoadError {}
 
 impl Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use LoadError::*;
         match self {
-            IOError(io_error) => io_error.fmt(f),
+            IOError(error) => error.fmt(f),
+            OpenError(error) => error.fmt(f),
             WrongSizeError => f.write_str("File size does not match a valid bin file size"),
-            SeekError(seek_error) => seek_error.fmt(f),
-        }
-    }
-}
-
-impl From<OpenError> for LoadError {
-    fn from(error: OpenError) -> Self {
-        match error {
-            OpenError::IOError(error) => Self::IOError(error),
-            OpenError::WrongSizeError => Self::WrongSizeError,
-        }
-    }
-}
-
-impl From<SeekReadError> for LoadError {
-    fn from(error: SeekReadError) -> Self {
-        match error {
-            SeekReadError::SeekError(error) => Self::SeekError(error),
-            SeekReadError::IOError(error) => Self::IOError(error),
         }
     }
 }
 
 pub enum SeekFrom {
-    Start(u32),
-    End(i32),
-    Current(i32)
+    Start(usize),
+    End(isize),
+    Current(isize)
 }
 
-
+#[derive(Getters)]
 pub struct BinFileReader {
     file: File,
+
+    #[getset(get = "pub")]
     tile_kind: tile::Kind,
-    pos: u32
+
+    #[getset(get = "pub")]
+    pos: usize
 }
 
 impl BinFileReader {
@@ -184,18 +149,18 @@ impl BinFileReader {
 
     // seek to tile position
     // returns new position if new position is inside the file or SeekError otherwise
-    pub fn seek(&mut self, pos: SeekFrom) -> Result<u32, SeekError> {
+    pub fn seek(&mut self, pos: SeekFrom) -> Result<usize, SeekError> {
         let new_pos = match pos {
-            SeekFrom::Start(pos_from_start) => pos_from_start as i32,
-            SeekFrom::End(pos_from_end) => TILE_COUNT as i32 - 1 + pos_from_end,
-            SeekFrom::Current(pos_from_current) => self.pos as i32 + pos_from_current,
+            SeekFrom::Start(pos_from_start) => pos_from_start as isize,
+            SeekFrom::End(pos_from_end) => TILE_COUNT as isize - 1 + pos_from_end,
+            SeekFrom::Current(pos_from_current) => self.pos as isize + pos_from_current,
         };
-        if new_pos < 0 || new_pos >= TILE_COUNT as i32 {
+        if new_pos < 0 || new_pos >= TILE_COUNT as isize {
             return Err(SeekError::OutOfBoundsError);
         }
-        let new_pos= new_pos as usize * self.tile_kind.raw_rgba_size_bytes();
+        let new_pos= new_pos * self.tile_kind.raw_rgba_size_bytes() as isize;
         self.file.seek(std::io::SeekFrom::Start(new_pos as u64)).map_err(SeekError::IOError)?;
-        self.pos = new_pos as u32;
+        self.pos = new_pos as usize;
         Ok(self.pos)
     }
 
@@ -208,19 +173,49 @@ impl BinFileReader {
         self.pos >= TILE_COUNT
     }
 
-    pub fn tile_grid(&mut self) -> Result<StandardSizeGrid, SeekReadError> {
-        StandardSizeGrid::try_from(self)
-    }
+    // pub fn tile_grid(&mut self) -> Result<StandardSizeGrid, SeekReadError> {
+    //     StandardSizeGrid::try_from(self)
+    // }
 
-    pub fn tile_array(&mut self) -> Result<StandardSizeArray, SeekReadError> {
-        StandardSizeArray::try_from(self)
+    // pub fn tile_array(&mut self) -> Result<StandardSizeArray, SeekReadError> {
+    //     StandardSizeArray::try_from(self)
+    // }
+
+    pub fn read_tiles(self) -> Result<Vec<Tile>, IOError> {
+        let mut tiles = vec![];
+        for tile in self {
+            tiles.push(tile?);
+        }
+        Ok(tiles)
     }
 
 }
 
-pub fn load<P: AsRef<Path> + Display>(path: P) -> Result<StandardSizeArray, LoadError> {
-    let mut bin_file_reader = BinFileReader::open(path)?;
-    Ok(StandardSizeArray::try_from(&mut bin_file_reader)?)
+pub struct BinFileReaderIterator(BinFileReader);
+
+impl Iterator for BinFileReaderIterator {
+    type Item = Result<Tile, IOError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if *self.0.pos() >= TILE_COUNT {
+            return None;
+        }
+        Some(self.0.read_tile())
+    }
+}
+
+impl IntoIterator for BinFileReader {
+    type Item = Result<Tile, IOError>;
+
+    type IntoIter = BinFileReaderIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BinFileReaderIterator(self)
+    }
+}
+
+pub fn load<P: AsRef<Path> + Display>(path: P) -> Result<Vec<Tile>, LoadError> {
+    Ok(BinFileReader::open(path)?.read_tiles()?)
 }
 
 #[derive(Debug)]
@@ -230,13 +225,15 @@ pub enum TileWriteError {
     NotEnoughTiles(BinFileWriter)
 }
 
+impl std::error::Error for TileWriteError {}
+
 impl Display for TileWriteError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TileWriteError::*;
         match self {
             IOError(io_error) => io_error.fmt(f),
-            MaximumTilesReached => write!(f, "Maximum number of tiles reached: a bin file can only contain {} tiles maximum", tile::containers::STANDARD_TILE_COUNT),
-            NotEnoughTiles(_) => write!(f, "Not enough tiles, a bin file must contain exactly {} tiles", tile::containers::STANDARD_TILE_COUNT),
+            MaximumTilesReached => write!(f, "Maximum number of tiles reached: a bin file can only contain {} tiles maximum", TILE_COUNT),
+            NotEnoughTiles(_) => write!(f, "Not enough tiles, a bin file must contain exactly {} tiles", TILE_COUNT),
         }
     }
 }
@@ -257,7 +254,7 @@ impl BinFileWriter {
     }
 
     pub fn write_tile(&mut self, tile: &Tile) -> Result<(), TileWriteError> {
-        if self.tile_count >= tile::containers::STANDARD_TILE_COUNT as u32 {
+        if self.tile_count >= TILE_COUNT as u32 {
             return Err(TileWriteError::MaximumTilesReached);
         }
         self.file.write(tile.as_raw()).map_err(TileWriteError::IOError)?;
@@ -266,7 +263,7 @@ impl BinFileWriter {
     }
 
     pub fn finish(self) -> Result<(), TileWriteError> {
-        if self.tile_count < tile::containers::STANDARD_TILE_COUNT as u32 {
+        if self.tile_count < TILE_COUNT as u32 {
             return Err(TileWriteError::NotEnoughTiles(self));
         }
         self.file.close().map_err(TileWriteError::IOError)?;

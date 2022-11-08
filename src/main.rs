@@ -7,10 +7,9 @@ use std::process::exit;
 use clap::{Parser, Subcommand};
 
 use hd_fpv_osd_font_tool::osd::bin_file;
-use hd_fpv_osd_font_tool::osd::{
-    bin_file::BinFileReader, SaveTilesToDir, tile::grid::StandardSizeGrid, SaveTilesToBinFile,
-    tile::containers::StandardSizeArray
-};
+use hd_fpv_osd_font_tool::osd::tile::container::{IntoTileGrid, SaveTilesToDir, SaveTilesToBinFile};
+use hd_fpv_osd_font_tool::osd::tile::grid::Grid as TileGrid;
+use hd_fpv_osd_font_tool::osd::tile::container as tile_container;
 
 use hd_fpv_osd_font_tool::log_level::LogLevel;
 
@@ -145,49 +144,45 @@ fn convert_command<'a>(from: &'a String, to: &'a String) -> Result<(), ConvertEr
     let to_arg = identify_convert_arg(to).map_err(ConvertError::ToArg)?;
     log::info!("converting {} -> {}", from, to);
 
-    let ext_tiles = bin_file::load("font_files/font_hd.bin").unwrap().extend(bin_file::load("font_files/font_hd_2.bin").unwrap()).unwrap();
-    // ext_tiles.save_tiles_to_dir("tiles_ext").unwrap();
-    ext_tiles.into_grid().image().save("ext_grid.png").unwrap();
+    use ConvertArg::*;
+    match (&from_arg, &to_arg) {
+        (BinFile(_), BinFile(_)) | (TileGrid(_), TileGrid(_)) | (TileDir(_), TileDir(_)) =>
+            return Err(ConvertError::InvalidConversion { from_prefix: from_arg.prefix(), to_prefix: to_arg.prefix()}),
 
-    // use ConvertArg::*;
-    // match (&from_arg, &to_arg) {
-    //     (BinFile(_), BinFile(_)) | (TileGrid(_), TileGrid(_)) | (TileDir(_), TileDir(_)) =>
-    //         return Err(ConvertError::InvalidConversion { from_prefix: from_arg.prefix(), to_prefix: to_arg.prefix()}),
+        (BinFile(from_path), to_arg) => {
+            let bin_file_tiles = bin_file::load(from_path).unwrap();
+            match to_arg {
+                TileGrid(to_path) => {
+                    check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
+                    bin_file_tiles.into_tile_grid().image().unwrap().save(to_path).unwrap()
+                },
+                TileDir(to_path) => bin_file_tiles.save_tiles_to_dir(to_path).unwrap(),
+                _ => unreachable!()
+            }
+        },
 
-    //     (BinFile(from_path), to_arg) => {
-    //         let mut bin_file = BinFileReader::open(from_path).unwrap();
-    //         match to_arg {
-    //             TileGrid(to_path) => {
-    //                 check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-    //                 bin_file.tile_grid().unwrap().image().save(to_path).unwrap()
-    //             },
-    //             TileDir(to_path) => bin_file.tile_array().unwrap().save_tiles_to_dir(to_path).unwrap(),
-    //             _ => unreachable!()
-    //         }
-    //     },
+        (TileGrid(from_path), to_arg) => {
+            check_arg_image_file_extension(from_path).map_err(ConvertError::FromArg)?;
+            let tile_grid = crate::TileGrid::load_from_image(from_path).unwrap();
+            match to_arg {
+                BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path).unwrap(),
+                TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path).unwrap(),
+                _ => unreachable!()
+            }
+        },
 
-    //     (TileGrid(from_path), to_arg) => {
-    //         check_arg_image_file_extension(from_path).map_err(ConvertError::FromArg)?;
-    //         let tile_grid = crate::StandardSizeGrid::load_from_image(from_path).unwrap();
-    //         match to_arg {
-    //             BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path).unwrap(),
-    //             TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path).unwrap(),
-    //             _ => unreachable!()
-    //         }
-    //     },
-
-    //     (TileDir(from_path), to_arg) => {
-    //         let tile_array = StandardSizeArray::load_from_dir(from_path).unwrap();
-    //         match to_arg {
-    //             BinFile(to_path) => tile_array.save_tiles_to_bin_file(to_path).unwrap(),
-    //             TileGrid(to_path) => {
-    //                 check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-    //                 tile_array.into_grid().image().save(to_path).unwrap()
-    //             },
-    //             _ => unreachable!()
-    //         }
-    //     },
-    // }
+        (TileDir(from_path), to_arg) => {
+            let tile_array = tile_container::load_from_dir(from_path, 512).unwrap();
+            match to_arg {
+                BinFile(to_path) => tile_array.save_tiles_to_bin_file(to_path).unwrap(),
+                TileGrid(to_path) => {
+                    check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
+                    tile_array.into_tile_grid().image().unwrap().save(to_path).unwrap()
+                },
+                _ => unreachable!()
+            }
+        },
+    }
 
     Ok(())
 }

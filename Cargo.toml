@@ -11,6 +11,7 @@ clap = { version = "4.0.18", features = ["derive"] }
 close-err = "1.0.1"
 derive_more = "0.99.17"
 error-stack = "0.2.3"
+getset = "0.1.2"
 image = { version = "0.24.4", features = ["rgb"] }
 log = "0.4.17"
 paste = "1.0.9"

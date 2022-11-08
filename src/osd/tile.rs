@@ -5,29 +5,22 @@ use std::path::Path;
 use std::io::Error as IOError;
 
 use derive_more::{Deref,DerefMut};
+use getset::{Getters, CopyGetters};
 use strum::{EnumIter,IntoEnumIterator, Display};
 use image::{ImageBuffer, Rgba, GenericImageView, GenericImage};
 use image::io::Reader as ImageReader;
 use image::error::ImageError;
+use crate::dimensions;
+
 use super::bin_file::BinFileReader;
 
 pub mod grid;
-pub mod containers;
+pub mod container;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Dimensions {
-    pub width: u32,
-    pub height: u32
-}
+pub type Dimensions = dimensions::Dimensions<u32>;
 
-impl From<(u32, u32)> for Dimensions {
-    fn from((width, height): (u32, u32)) -> Self {
-        Self { width, height }
-    }
-}
-
-pub const SD_DIMENSIONS: Dimensions = Dimensions { width: 36, height: 54 };
-pub const HD_DIMENSIONS: Dimensions = Dimensions { width: 24, height: 36 };
+pub const SD_DIMENSIONS: Dimensions = Dimensions::new(36, 54);
+pub const HD_DIMENSIONS: Dimensions = Dimensions::new(24, 36);
 
 #[derive(Debug)]
 pub struct InvalidDimensionsError(Dimensions);
@@ -35,7 +28,7 @@ impl Error for InvalidDimensionsError {}
 
 impl Display for InvalidDimensionsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "dimensions do not match any tile kind: {}x{}", self.0.width, self.0.height)
+        write!(f, "dimensions do not match any tile kind: {}x{}", self.0.width(), self.0.height())
     }
 }
 
@@ -106,7 +99,7 @@ impl Display for LoadError {
         match self {
             IOError(io_error) => io_error.fmt(f),
             ImageError(image_error) => image_error.fmt(f),
-            InvalidDimensionsError(dimensions) => write!(f, "invalid tile image size {}x{}", dimensions.width, dimensions.height),
+            InvalidDimensionsError(dimensions) => write!(f, "invalid tile image size {}x{}", dimensions.width(), dimensions.height()),
             InvalidSizeError(error) => error.fmt(f),
         }
     }
@@ -142,12 +135,14 @@ impl Error for LoadError {}
 pub type Bytes = Vec<u8>;
 pub type Image = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-#[derive(Deref, DerefMut, Clone, Debug)]
+#[derive(Deref, DerefMut, Clone, Debug, Getters, CopyGetters)]
 pub struct Tile {
+    #[getset(get_copy = "pub")]
     kind: Kind,
 
     #[deref]
     #[deref_mut]
+    #[getset(get = "pub")]
     image: Image,
 }
 
@@ -168,14 +163,6 @@ impl Tile {
         Ok(Self::try_from(file.read_tile_bytes()?)?)
     }
 
-    pub fn kind(&self) -> Kind {
-        self.kind
-    }
-
-    pub fn image(&self) -> &Image {
-        &self.image
-    }
-
 }
 
 impl TryFrom<Bytes> for Tile {
@@ -183,7 +170,7 @@ impl TryFrom<Bytes> for Tile {
 
     fn try_from(bytes: Bytes) -> Result<Self, Self::Error> {
         let kind = Kind::for_size_bytes(bytes.len())?;
-        Ok(Self { kind, image: ImageBuffer::from_raw(kind.dimensions().width, kind.dimensions().height, bytes).unwrap() })
+        Ok(Self { kind, image: ImageBuffer::from_raw(kind.dimensions().width(), kind.dimensions().height(), bytes).unwrap() })
     }
 }
 
@@ -206,13 +193,3 @@ impl TryFrom<&mut BinFileReader> for Tile {
         Self::read_from_bin_file(file)
     }
 }
-
-pub struct TileIter<'a, T> {
-    pub(crate) container: &'a T,
-    pub(crate) index: usize
-}
-
-// pub struct TileIntoIter<T> {
-//     pub(crate) container: T,
-//     pub(crate) index: usize
-// }
