@@ -9,8 +9,9 @@ use derive_more::{From, Error};
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
-use super::tile::container::{TileKindError, UniqTileKind};
+use super::tile::container::{TileKindError, UniqTileKind, IntoTileGrid};
 use super::tile::{self, Tile, Kind as TileKind};
+use super::tile::grid::Grid as TileGrid;
 
 pub const TILE_COUNT: usize = 256;
 
@@ -175,13 +176,9 @@ impl BinFileReader {
         self.pos >= TILE_COUNT
     }
 
-    // pub fn tile_grid(&mut self) -> Result<StandardSizeGrid, SeekReadError> {
-    //     StandardSizeGrid::try_from(self)
-    // }
-
-    // pub fn tile_array(&mut self) -> Result<StandardSizeArray, SeekReadError> {
-    //     StandardSizeArray::try_from(self)
-    // }
+    pub fn into_tile_grid(self) -> Result<TileGrid, SeekReadError> {
+        Ok(self.read_tiles()?.into_tile_grid())
+    }
 
     pub fn read_tiles(self) -> Result<Vec<Tile>, IOError> {
         let mut tiles = vec![];
