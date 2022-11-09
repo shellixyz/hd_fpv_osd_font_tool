@@ -300,17 +300,6 @@ impl Display for LoadSetError {
 }
 
 pub fn load_set<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<TileSet, LoadSetError> {
-    // let set_ident = match ident {
-    //     Some(ident) => ["_", ident].into_iter().collect(),
-    //     // Some(ident) => format!("_{ident}"),
-    //     None => "".to_owned(),
-    // };
-
-    // let dir_str = dir.as_ref().to_str().unwrap();
-
-    // let mut paths = ["", "_2", "_hd", "_hd_2"].iter().map(|suffix|
-    //     [dir_str, &format!("font{set_ident}{suffix}.bin")].into_iter().collect::<PathBuf>()
-    // );
 
     fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
         load_extended_from_dir(&dir, tile_kind, ident).map_err(|error|
@@ -324,23 +313,6 @@ pub fn load_set<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<TileSet, 
                 }
         )
     }
-
-    // let sd_tiles = load_extended(paths.next().unwrap(), paths.next().unwrap())?;
-    // let sd_tiles = load_extended_from_dir(&dir, TileKind::SD, ident).map_err(|error|
-    //     if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
-    //         LoadSetError::WrongTileKindInSDFiles
-    //     } else {
-    //         error.into()
-    //     }
-    // )?;
-    // if sd_tiles.tile_kind()? != TileKind::SD {
-    //     return Err(LoadSetError::WrongTileKindInSDFiles);
-    // }
-
-    // let hd_tiles = load_extended(paths.next().unwrap(), paths.next().unwrap())?;
-    // if hd_tiles.tile_kind()? != TileKind::HD {
-    //     return Err(LoadSetError::WrongTileKindInHDFiles);
-    // }
 
     let sd_tiles = load_tiles(&dir, TileKind::SD, ident)?;
     let hd_tiles = load_tiles(&dir, TileKind::HD, ident)?;
