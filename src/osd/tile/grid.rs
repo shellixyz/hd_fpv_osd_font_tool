@@ -74,11 +74,11 @@ impl Grid {
         Err(InvalidImageDimensionsError)
     }
 
-    pub fn load_from_image<P: AsRef<Path> + Display>(path: P) -> Result<Self, LoadError> {
+    pub fn load_from_image<P: AsRef<Path>>(path: P) -> Result<Self, LoadError> {
         let image = ImageReader::open(&path)?.decode()?;
         let (img_dim_width, img_dim_height) = image.dimensions();
         let (tile_kind, grid_height) = Self::image_tile_kind_and_grid_height(ImageDimensions { width: img_dim_width, height: img_dim_height })?;
-        log::info!("detected {tile_kind} kind of tiles in a {WIDTH}x{grid_height} grid in {path}");
+        log::info!("detected {tile_kind} kind of tiles in a {WIDTH}x{grid_height} grid in {}", path.as_ref().to_string_lossy());
         let tile_dimensions = tile_kind.dimensions();
         let mut tiles_container = Vec::with_capacity(WIDTH * grid_height);
 

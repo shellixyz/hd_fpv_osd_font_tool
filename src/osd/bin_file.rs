@@ -1,5 +1,5 @@
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::{Read, Seek, Write, Error as IOError};
 use std::fmt::Display;
 use std::fs::File;
@@ -115,10 +115,10 @@ pub struct BinFileReader {
 
 impl BinFileReader {
 
-    pub fn open<P: AsRef<Path> + Display>(path: P) -> Result<Self, OpenError> {
+    pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, OpenError> {
         let file = File::open(&path).map_err(OpenError::IOError)?;
         let tile_kind = tile::Kind::for_bin_file_size_bytes(file.metadata().unwrap().len() as usize)?;
-        log::info!("detected {} kind of tiles in {}", tile_kind, path);
+        log::info!("detected {} kind of tiles in {}", tile_kind, path.as_ref().to_string_lossy());
         Ok(Self { file, tile_kind, pos: 0 })
     }
 
@@ -216,15 +216,136 @@ impl IntoIterator for BinFileReader {
     }
 }
 
-pub fn load<P: AsRef<Path> + Display>(path: P) -> Result<Vec<Tile>, LoadError> {
+pub fn load<P: AsRef<Path>>(path: P) -> Result<Vec<Tile>, LoadError> {
     Ok(BinFileReader::open(path)?.read_tiles()?)
 }
 
-pub fn load_extended<P: AsRef<Path> + Display>(base_path: P, ext_path: P) -> Result<Vec<Tile>, LoadError> {
+pub fn load_extended<P: AsRef<Path>>(base_path: P, ext_path: P) -> Result<Vec<Tile>, LoadError> {
     let mut tiles = load(base_path)?;
     tiles.append(&mut load(ext_path)?);
     tiles.tile_kind()?;
     Ok(tiles)
+}
+
+pub enum FontPart {
+    Base,
+    Ext
+}
+
+pub fn normalized_file_name(tile_kind: TileKind, ident: Option<&str>, part: FontPart) -> PathBuf {
+    let font_part_str = match part {
+        FontPart::Base => "",
+        FontPart::Ext => "_2",
+    };
+    let tile_kind_str = match tile_kind {
+        TileKind::SD => "",
+        TileKind::HD => "_hd",
+    };
+    let ident = match ident {
+        Some(ident) => format!("_{ident}"),
+        None => "".to_owned(),
+    };
+    PathBuf::from(format!("font{ident}{tile_kind_str}{font_part_str}.bin"))
+}
+
+pub fn normalized_file_path<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>, part: FontPart) -> PathBuf {
+    [dir.as_ref().to_path_buf(), normalized_file_name(tile_kind, ident, part)].into_iter().collect()
+}
+
+pub fn load_base_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadError> {
+    let tiles = load(normalized_file_path(&dir, tile_kind, ident, FontPart::Base))?;
+    let loaded_tile_kind = tiles.tile_kind()?;
+    if loaded_tile_kind != tile_kind {
+        return Err(LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { requested: tile_kind, loaded: loaded_tile_kind }));
+    }
+    Ok(tiles)
+}
+
+pub fn load_extended_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadError> {
+    let base_path = normalized_file_path(&dir, tile_kind, ident, FontPart::Base);
+    let ext_path = normalized_file_path(&dir, tile_kind, ident, FontPart::Ext);
+    let tiles = load_extended(base_path, ext_path)?;
+    let loaded_tile_kind = tiles.tile_kind()?;
+    if loaded_tile_kind != tile_kind {
+        return Err(LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { requested: tile_kind, loaded: loaded_tile_kind }));
+    }
+    Ok(tiles)
+}
+
+#[derive(Getters)]
+#[getset(get = "pub")]
+pub struct TileSet {
+    sd_tiles: Vec<Tile>,
+    hd_tiles: Vec<Tile>,
+}
+
+#[derive(Debug, Error, From)]
+pub enum LoadSetError {
+    LoadError(LoadError),
+    TileKindError(TileKindError),
+    WrongTileKindInSDFiles,
+    WrongTileKindInHDFiles,
+}
+
+impl Display for LoadSetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use LoadSetError::*;
+        match self {
+            LoadError(error) => error.fmt(f),
+            WrongTileKindInSDFiles => f.write_str("wrong tile kind in SD files"),
+            WrongTileKindInHDFiles => f.write_str("wrong tile kind in HD files"),
+            TileKindError(error) => error.fmt(f),
+        }
+    }
+}
+
+pub fn load_set<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<TileSet, LoadSetError> {
+    // let set_ident = match ident {
+    //     Some(ident) => ["_", ident].into_iter().collect(),
+    //     // Some(ident) => format!("_{ident}"),
+    //     None => "".to_owned(),
+    // };
+
+    // let dir_str = dir.as_ref().to_str().unwrap();
+
+    // let mut paths = ["", "_2", "_hd", "_hd_2"].iter().map(|suffix|
+    //     [dir_str, &format!("font{set_ident}{suffix}.bin")].into_iter().collect::<PathBuf>()
+    // );
+
+    fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
+        load_extended_from_dir(&dir, tile_kind, ident).map_err(|error|
+                if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
+                    match tile_kind {
+                        TileKind::SD => LoadSetError::WrongTileKindInSDFiles,
+                        TileKind::HD => LoadSetError::WrongTileKindInHDFiles,
+                    }
+                } else {
+                    error.into()
+                }
+        )
+    }
+
+    // let sd_tiles = load_extended(paths.next().unwrap(), paths.next().unwrap())?;
+    // let sd_tiles = load_extended_from_dir(&dir, TileKind::SD, ident).map_err(|error|
+    //     if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
+    //         LoadSetError::WrongTileKindInSDFiles
+    //     } else {
+    //         error.into()
+    //     }
+    // )?;
+    // if sd_tiles.tile_kind()? != TileKind::SD {
+    //     return Err(LoadSetError::WrongTileKindInSDFiles);
+    // }
+
+    // let hd_tiles = load_extended(paths.next().unwrap(), paths.next().unwrap())?;
+    // if hd_tiles.tile_kind()? != TileKind::HD {
+    //     return Err(LoadSetError::WrongTileKindInHDFiles);
+    // }
+
+    let sd_tiles = load_tiles(&dir, TileKind::SD, ident)?;
+    let hd_tiles = load_tiles(&dir, TileKind::HD, ident)?;
+
+    Ok(TileSet { sd_tiles, hd_tiles })
 }
 
 #[derive(Debug, From)]

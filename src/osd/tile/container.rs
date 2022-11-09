@@ -8,7 +8,7 @@ use image::ImageError;
 
 use crate::osd::bin_file::{BinFileWriter, self, TileWriteError, FillRemainingSpaceError};
 
-use super::Tile;
+use super::{Tile, Kind as TileKind};
 use super::LoadError as TileLoadError;
 use super::grid::Grid as TileGrid;
 
@@ -41,7 +41,11 @@ where
 #[derive(Debug, Error)]
 pub enum TileKindError {
     EmptyContainer,
-    MultipleTileKinds
+    MultipleTileKinds,
+    LoadedDoesNotMatchRequested {
+        requested: TileKind,
+        loaded: TileKind,
+    }
 }
 
 impl Display for TileKindError {
@@ -50,6 +54,7 @@ impl Display for TileKindError {
         match self {
             EmptyContainer => f.write_str("cannot determine tile kind from empty container"),
             MultipleTileKinds => f.write_str("container includes multiple tile kinds"),
+            LoadedDoesNotMatchRequested { requested, loaded } => write!(f, "loaded kind does not match requested: loaded {loaded}, requested {requested}"),
         }
     }
 }
@@ -151,12 +156,12 @@ impl Display for LoadFromDirError {
     }
 }
 
-pub fn load_from_dir<P: AsRef<Path> + Display>(path: P, tile_count: usize) -> Result<Vec<Tile>, LoadFromDirError> {
+pub fn load_from_dir<P: AsRef<Path>>(path: P, tile_count: usize) -> Result<Vec<Tile>, LoadFromDirError> {
     let mut tiles = vec![];
     let mut tile_kind = None;
 
     for index in 0..tile_count {
-        let tile_path: PathBuf = [path.as_ref().to_str().unwrap(), &format!("{:03}.png", index)].iter().collect();
+        let tile_path: PathBuf = [path.as_ref(), Path::new(&format!("{:03}.png", index))].iter().collect();
         let tile = match Tile::load_image_file(tile_path) {
             Ok(loaded_tile) => Some(loaded_tile),
             Err(error) => match &error {
@@ -173,7 +178,7 @@ pub fn load_from_dir<P: AsRef<Path> + Display>(path: P, tile_count: usize) -> Re
 
             // first loaded tile: record the kind of tile
             (Some(tile), None) => {
-                log::info!("detected {} kind of tiles in {}", tile.kind(), path);
+                log::info!("detected {} kind of tiles in {}", tile.kind(), path.as_ref().to_string_lossy());
                 tile_kind = Some(tile.kind());
             },
 
