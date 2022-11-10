@@ -1,11 +1,13 @@
 
 use std::fmt::Display;
+use std::ops::Index;
 use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 
 use derive_more::{Error, Display, From};
 use getset::Getters;
 use image::ImageError;
+use strum::IntoEnumIterator;
 
 use crate::osd::bin_file::{BinFileWriter, self, TileWriteError, FillRemainingSpaceError};
 
@@ -259,8 +261,8 @@ impl TileSet {
     }
 
     pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<Self, LoadTileSetTilesFromDirError> {
-        let sd_tiles = self::load_tiles_from_dir(&path, max_tiles)?;
-        let hd_tiles = self::load_tiles_from_dir(&path, max_tiles)?;
+        let sd_tiles = self::load_tiles_from_dir(TileKind::SD.set_dir_path(&path), max_tiles)?;
+        let hd_tiles = self::load_tiles_from_dir(TileKind::HD.set_dir_path(&path), max_tiles)?;
         Ok(Self::try_from(sd_tiles, hd_tiles)?)
     }
 
@@ -272,13 +274,24 @@ impl TileSet {
 
 }
 
+impl Index<TileKind> for TileSet {
+    type Output = Vec<Tile>;
+
+    fn index(&self, tile_kind: TileKind) -> &Self::Output {
+        match tile_kind {
+            TileKind::SD => &self.sd_tiles,
+            TileKind::HD => &self.hd_tiles,
+        }
+    }
+}
+
 impl SaveTilesToDir for TileSet {
 
-    fn save_tiles_to_dir<P: AsRef<Path>>(&self, dir: P) -> Result<(), SaveTilesToDirError> {
-        let sd_dir: PathBuf = [dir.as_ref(), Path::new("SD")].iter().collect();
-        self.sd_tiles.save_tiles_to_dir(sd_dir)?;
-        let hd_dir: PathBuf = [dir.as_ref(), Path::new("HD")].iter().collect();
-        self.hd_tiles.save_tiles_to_dir(hd_dir)
+    fn save_tiles_to_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), SaveTilesToDirError> {
+        for tile_kind in TileKind::iter() {
+            self[tile_kind].save_tiles_to_dir(tile_kind.set_dir_path(&path))?;
+        }
+        Ok(())
     }
 
 }

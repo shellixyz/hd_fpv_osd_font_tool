@@ -1,7 +1,7 @@
 
 use std::error::Error;
 use std::fmt::Display;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 
 use derive_more::{Deref,DerefMut};
@@ -55,6 +55,17 @@ impl Kind {
             Kind::SD => SD_DIMENSIONS,
             Kind::HD => HD_DIMENSIONS,
         }
+    }
+
+    pub const fn set_dir_name(&self) -> &'static str {
+        match self {
+            Kind::SD => "SD",
+            Kind::HD => "HD",
+        }
+    }
+
+    pub fn set_dir_path<P: AsRef<Path>>(&self, base_dir: P) -> PathBuf {
+        [base_dir.as_ref(), Path::new(self.set_dir_name())].iter().collect()
     }
 
     pub const fn raw_rgba_size_bytes(&self) -> usize {
