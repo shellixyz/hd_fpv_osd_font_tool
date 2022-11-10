@@ -67,7 +67,7 @@ pub fn load_specs_file<P: AsRef<Path>>(path: P) -> Result<Specs, LoadSpecsFileEr
     let file = std::fs::File::open(path)?;
     let file_content: HashMap<String, String> = serde_yaml::from_reader(file)?;
     lazy_static! {
-        static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\w\d]+|\d+):(?P<span>\d+)\z").unwrap();
+        static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();
     }
     let mut spec_vec = Vec::with_capacity(file_content.len());
     for (_, spec) in file_content {
