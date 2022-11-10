@@ -9,6 +9,7 @@ use derive_more::{Error, Display, From};
 use getset::Getters;
 use image::ImageError;
 use regex::Regex;
+use lazy_static::lazy_static;
 use strum::IntoEnumIterator;
 use tap::Tap;
 
@@ -548,9 +549,11 @@ impl SymbolDirFileType {
 pub fn load_symbols_from_dir<P: AsRef<Path>>(dir_path: P, max_symbols: usize) -> Result<Vec<Symbol>, LoadSymbolsFromDirError> {
 
     fn identify_file<P: AsRef<Path>>(path: P) -> Option<SymbolDirFileType> {
-        let file_name_re = Regex::new(r"\A(?P<start_index>\d{3})(?:-(?P<end_index>\d{3}))?\.").unwrap();
+        lazy_static! {
+            static ref FILE_NAME_RE: Regex = Regex::new(r"\A(?P<start_index>\d{3})(?:-(?P<end_index>\d{3}))?\.").unwrap();
+        }
 
-        if let Some(captures) = file_name_re.captures(path.as_ref().file_name().unwrap().to_string_lossy().to_string().as_str()) {
+        if let Some(captures) = FILE_NAME_RE.captures(path.as_ref().file_name().unwrap().to_string_lossy().to_string().as_str()) {
             let start_index = captures.name("start_index").unwrap().as_str().parse().expect("failed to parse start index");
             match captures.name("end_index") {
                 Some(end_index) => {
