@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 
 use derive_more::{Error, Display, From};
+use getset::Getters;
 use image::ImageError;
 
 use crate::osd::bin_file::{BinFileWriter, self, TileWriteError, FillRemainingSpaceError};
@@ -140,27 +141,27 @@ impl IntoTileGrid for &[Tile] {
 }
 
 #[derive(Debug, Error, From)]
-pub enum LoadFromDirError {
+pub enum LoadTilesFromDirError {
     LoadError(TileLoadError),
     NoTileFound,
     KindMismatchError
 }
 
-impl Display for LoadFromDirError {
+impl Display for LoadTilesFromDirError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LoadFromDirError::LoadError(load_error) => load_error.fmt(f),
-            LoadFromDirError::KindMismatchError => f.write_str("directory contains different kinds of tiles"),
-            LoadFromDirError::NoTileFound => f.write_str("no tile found"),
+            LoadTilesFromDirError::LoadError(load_error) => load_error.fmt(f),
+            LoadTilesFromDirError::KindMismatchError => f.write_str("directory contains different kinds of tiles"),
+            LoadTilesFromDirError::NoTileFound => f.write_str("no tile found"),
         }
     }
 }
 
-pub fn load_from_dir<P: AsRef<Path>>(path: P, tile_count: usize) -> Result<Vec<Tile>, LoadFromDirError> {
+pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<Vec<Tile>, LoadTilesFromDirError> {
     let mut tiles = vec![];
     let mut tile_kind = None;
 
-    for index in 0..tile_count {
+    for index in 0..max_tiles {
         let tile_path: PathBuf = [path.as_ref(), Path::new(&format!("{:03}.png", index))].iter().collect();
         let tile = match Tile::load_image_file(tile_path) {
             Ok(loaded_tile) => Some(loaded_tile),
@@ -184,7 +185,7 @@ pub fn load_from_dir<P: AsRef<Path>>(path: P, tile_count: usize) -> Result<Vec<T
 
             // we have already loaded a tile before, check that the new tile kind is matching what had recorded
             (Some(tile), Some(tile_kind)) => if tile.kind() != *tile_kind {
-                return Err(LoadFromDirError::KindMismatchError)
+                return Err(LoadTilesFromDirError::KindMismatchError)
             },
 
             _ => {}
@@ -199,8 +200,84 @@ pub fn load_from_dir<P: AsRef<Path>>(path: P, tile_count: usize) -> Result<Vec<T
             let last_some_index = tiles.iter().rposition(Option::is_some).unwrap();
             tiles[0..=last_some_index].iter().map(|tile| tile.clone().unwrap_or_else(|| Tile::new(tile_kind))).collect()
         }
-        None => return Err(LoadFromDirError::NoTileFound),
+        None => return Err(LoadTilesFromDirError::NoTileFound),
     };
 
     Ok(tiles)
+}
+
+#[derive(Debug)]
+pub enum TileSetFromError {
+    TileKindMismatch(TileKind),
+    WrongTileKind(TileKind),
+}
+
+impl std::error::Error for TileSetFromError {}
+
+impl Display for TileSetFromError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use TileSetFromError::*;
+        match self {
+            TileKindMismatch(collection_kind) => write!(f, "mismatched tile kinds in {collection_kind} collection"),
+            WrongTileKind(collection_kind) => write!(f, "wrong tile kind in {collection_kind} collection"),
+        }
+    }
+}
+
+#[derive(Debug, Display, Error, From)]
+pub enum LoadTileSetTilesFromDirError {
+    LoadTilesFromDirError(LoadTilesFromDirError),
+    TileSetFromError(TileSetFromError),
+}
+
+#[derive(Debug, Display, Error, From)]
+pub enum LoadFromTileGridsError {
+    GridImageLoadError(super::grid::LoadError),
+    TileSetFromError(TileSetFromError),
+}
+
+#[derive(Getters)]
+#[getset(get = "pub")]
+pub struct TileSet {
+    pub(crate) sd_tiles: Vec<Tile>,
+    pub(crate) hd_tiles: Vec<Tile>,
+}
+
+impl TileSet {
+
+    pub fn try_from(sd_tiles: Vec<Tile>, hd_tiles: Vec<Tile>) -> Result<Self, TileSetFromError> {
+        let sd_collection_kind = sd_tiles.tile_kind().map_err(|_| TileSetFromError::TileKindMismatch(TileKind::SD))?;
+        if sd_collection_kind != TileKind::SD {
+            return Err(TileSetFromError::WrongTileKind(TileKind::SD))
+        }
+        let hd_collection_kind = hd_tiles.tile_kind().map_err(|_| TileSetFromError::TileKindMismatch(TileKind::HD))?;
+        if hd_collection_kind != TileKind::HD {
+            return Err(TileSetFromError::WrongTileKind(TileKind::HD))
+        }
+        Ok(Self { sd_tiles, hd_tiles })
+    }
+
+    pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<Self, LoadTileSetTilesFromDirError> {
+        let sd_tiles = self::load_tiles_from_dir(&path, max_tiles)?;
+        let hd_tiles = self::load_tiles_from_dir(&path, max_tiles)?;
+        Ok(Self::try_from(sd_tiles, hd_tiles)?)
+    }
+
+    pub fn load_from_tile_grids<P: AsRef<Path>>(sd_grid_path: P, hd_grid_path: P) -> Result<Self, LoadFromTileGridsError> {
+        let sd_tiles = TileGrid::load_from_image(sd_grid_path)?.to_vec();
+        let hd_tiles = TileGrid::load_from_image(hd_grid_path)?.to_vec();
+        Ok(Self::try_from(sd_tiles, hd_tiles)?)
+    }
+
+}
+
+impl SaveTilesToDir for TileSet {
+
+    fn save_tiles_to_dir<P: AsRef<Path>>(&self, dir: P) -> Result<(), SaveTilesToDirError> {
+        let sd_dir: PathBuf = [dir.as_ref(), Path::new("SD")].iter().collect();
+        self.sd_tiles.save_tiles_to_dir(sd_dir)?;
+        let hd_dir: PathBuf = [dir.as_ref(), Path::new("HD")].iter().collect();
+        self.hd_tiles.save_tiles_to_dir(hd_dir)
+    }
+
 }

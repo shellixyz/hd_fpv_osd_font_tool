@@ -9,7 +9,7 @@ use derive_more::{From, Error};
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
-use super::tile::container::{TileKindError, UniqTileKind, IntoTileGrid, SaveTilesToDir, SaveTilesToDirError};
+use super::tile::container::{TileKindError, UniqTileKind, IntoTileGrid, TileSet};
 use super::tile::{self, Tile, Kind as TileKind};
 use super::tile::grid::Grid as TileGrid;
 
@@ -269,16 +269,9 @@ pub fn load_extended_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident
     Ok(tiles)
 }
 
-#[derive(Getters)]
-#[getset(get = "pub")]
-pub struct TileSet {
-    sd_tiles: Vec<Tile>,
-    hd_tiles: Vec<Tile>,
-}
-
 impl TileSet {
 
-    pub fn load_from_dir<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<Self, LoadSetError> {
+    pub fn load_from_bin_files_in_dir<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<Self, LoadSetError> {
 
         fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
             load_extended_from_dir(&dir, tile_kind, ident).map_err(|error|
@@ -297,13 +290,6 @@ impl TileSet {
         let hd_tiles = load_tiles(&dir, TileKind::HD, ident)?;
 
         Ok(Self { sd_tiles, hd_tiles })
-    }
-
-    pub fn save_tiles_to_dir<P: AsRef<Path>>(&self, dir: P) -> Result<(), SaveTilesToDirError> {
-        let sd_dir: PathBuf = [dir.as_ref(), Path::new("SD")].iter().collect();
-        self.sd_tiles.save_tiles_to_dir(sd_dir)?;
-        let hd_dir: PathBuf = [dir.as_ref(), Path::new("HD")].iter().collect();
-        self.hd_tiles.save_tiles_to_dir(hd_dir)
     }
 
 }
@@ -329,7 +315,7 @@ impl Display for LoadSetError {
 }
 
 pub fn load_set<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<TileSet, LoadSetError> {
-    TileSet::load_from_dir(dir, ident)
+    TileSet::load_from_bin_files_in_dir(dir, ident)
 }
 
 #[derive(Debug, From)]
