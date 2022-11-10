@@ -31,7 +31,7 @@ where
         std::fs::create_dir_all(&path)?;
 
         for (index, tile) in self.into_iter().enumerate() {
-            let path: PathBuf = [path.as_ref().to_str().unwrap(), &format!("{:03}.png", index)].iter().collect();
+            let path: PathBuf = [path.as_ref(), Path::new(&format!("{:03}.png", index))].iter().collect();
             tile.save(path)?;
         }
 
@@ -246,13 +246,14 @@ pub struct TileSet {
 impl TileSet {
 
     pub fn try_from(sd_tiles: Vec<Tile>, hd_tiles: Vec<Tile>) -> Result<Self, TileSetFromError> {
-        let sd_collection_kind = sd_tiles.tile_kind().map_err(|_| TileSetFromError::TileKindMismatch(TileKind::SD))?;
+        use TileSetFromError::*;
+        let sd_collection_kind = sd_tiles.tile_kind().map_err(|_| TileKindMismatch(TileKind::SD))?;
         if sd_collection_kind != TileKind::SD {
-            return Err(TileSetFromError::WrongTileKind(TileKind::SD))
+            return Err(WrongTileKind(TileKind::SD))
         }
-        let hd_collection_kind = hd_tiles.tile_kind().map_err(|_| TileSetFromError::TileKindMismatch(TileKind::HD))?;
+        let hd_collection_kind = hd_tiles.tile_kind().map_err(|_| TileKindMismatch(TileKind::HD))?;
         if hd_collection_kind != TileKind::HD {
-            return Err(TileSetFromError::WrongTileKind(TileKind::HD))
+            return Err(WrongTileKind(TileKind::HD))
         }
         Ok(Self { sd_tiles, hd_tiles })
     }
