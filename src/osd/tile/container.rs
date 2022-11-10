@@ -13,7 +13,7 @@ use strum::IntoEnumIterator;
 use tap::Tap;
 
 use crate::osd::bin_file::{BinFileWriter, self, TileWriteError, FillRemainingSpaceError};
-use crate::osd::symbol::{Symbol, Spec as SymbolSpec};
+use crate::osd::symbol::{Symbol, spec::{Spec as SymbolSpec, Specs as SymbolSpecs}};
 
 use super::{Tile, Kind as TileKind};
 use super::LoadError as TileLoadError;
@@ -426,18 +426,18 @@ pub trait SymbolSpecsExt {
     fn find_start_index(&self, start_tile_index: usize) -> Option<&SymbolSpec>;
 }
 
-impl SymbolSpecsExt for &[SymbolSpec] {
+impl SymbolSpecsExt for SymbolSpecs {
     fn find_start_index(&self, start_tile_index: usize) -> Option<&SymbolSpec> {
         self.iter().find(|sym_spec| sym_spec.start_tile_index() == start_tile_index)
     }
 }
 
 pub trait ToSymbols {
-    fn to_symbols(&self, specs: &[SymbolSpec]) -> Result<Vec<Symbol>, TileKindError>;
+    fn to_symbols(&self, specs: SymbolSpecs) -> Result<Vec<Symbol>, TileKindError>;
 }
 
 impl ToSymbols for &[Tile] {
-    fn to_symbols(&self, specs: &[SymbolSpec]) -> Result<Vec<Symbol>, TileKindError> {
+    fn to_symbols(&self, specs: SymbolSpecs) -> Result<Vec<Symbol>, TileKindError> {
         let mut tile_index = 0;
         let mut symbols = vec![];
         while tile_index < self.len() {
@@ -456,7 +456,7 @@ impl ToSymbols for &[Tile] {
 }
 
 impl ToSymbols for Vec<Tile> {
-    fn to_symbols(&self, specs: &[SymbolSpec]) -> Result<Vec<Symbol>, TileKindError> {
+    fn to_symbols(&self, specs: SymbolSpecs) -> Result<Vec<Symbol>, TileKindError> {
         self.as_slice().to_symbols(specs)
     }
 }
