@@ -9,7 +9,7 @@ use derive_more::{From, Error};
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
-use super::tile::container::{TileKindError, UniqTileKind, IntoTileGrid};
+use super::tile::container::{TileKindError, UniqTileKind, IntoTileGrid, SaveTilesToDir, SaveTilesToDirError};
 use super::tile::{self, Tile, Kind as TileKind};
 use super::tile::grid::Grid as TileGrid;
 
@@ -276,6 +276,38 @@ pub struct TileSet {
     hd_tiles: Vec<Tile>,
 }
 
+impl TileSet {
+
+    pub fn load_from_dir<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<Self, LoadSetError> {
+
+        fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
+            load_extended_from_dir(&dir, tile_kind, ident).map_err(|error|
+                    if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
+                        match tile_kind {
+                            TileKind::SD => LoadSetError::WrongTileKindInSDFiles,
+                            TileKind::HD => LoadSetError::WrongTileKindInHDFiles,
+                        }
+                    } else {
+                        error.into()
+                    }
+            )
+        }
+
+        let sd_tiles = load_tiles(&dir, TileKind::SD, ident)?;
+        let hd_tiles = load_tiles(&dir, TileKind::HD, ident)?;
+
+        Ok(Self { sd_tiles, hd_tiles })
+    }
+
+    pub fn save_tiles_to_dir<P: AsRef<Path>>(&self, dir: P) -> Result<(), SaveTilesToDirError> {
+        let sd_dir: PathBuf = [dir.as_ref(), Path::new("SD")].iter().collect();
+        self.sd_tiles.save_tiles_to_dir(sd_dir)?;
+        let hd_dir: PathBuf = [dir.as_ref(), Path::new("HD")].iter().collect();
+        self.hd_tiles.save_tiles_to_dir(hd_dir)
+    }
+
+}
+
 #[derive(Debug, Error, From)]
 pub enum LoadSetError {
     LoadError(LoadError),
@@ -297,24 +329,7 @@ impl Display for LoadSetError {
 }
 
 pub fn load_set<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<TileSet, LoadSetError> {
-
-    fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
-        load_extended_from_dir(&dir, tile_kind, ident).map_err(|error|
-                if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
-                    match tile_kind {
-                        TileKind::SD => LoadSetError::WrongTileKindInSDFiles,
-                        TileKind::HD => LoadSetError::WrongTileKindInHDFiles,
-                    }
-                } else {
-                    error.into()
-                }
-        )
-    }
-
-    let sd_tiles = load_tiles(&dir, TileKind::SD, ident)?;
-    let hd_tiles = load_tiles(&dir, TileKind::HD, ident)?;
-
-    Ok(TileSet { sd_tiles, hd_tiles })
+    TileSet::load_from_dir(dir, ident)
 }
 
 #[derive(Debug, From)]
