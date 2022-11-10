@@ -4,7 +4,7 @@ use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 
-use derive_more::{Deref,DerefMut};
+use derive_more::{Deref,DerefMut, From};
 use getset::{Getters, CopyGetters};
 use strum::{EnumIter,IntoEnumIterator, Display};
 use image::{ImageBuffer, Rgba, GenericImageView, GenericImage};
@@ -23,7 +23,7 @@ pub const SD_DIMENSIONS: Dimensions = Dimensions::new(36, 54);
 pub const HD_DIMENSIONS: Dimensions = Dimensions::new(24, 36);
 
 #[derive(Debug)]
-pub struct InvalidDimensionsError(Dimensions);
+pub struct InvalidDimensionsError(pub Dimensions);
 impl Error for InvalidDimensionsError {}
 
 impl Display for InvalidDimensionsError {
@@ -33,12 +33,22 @@ impl Display for InvalidDimensionsError {
 }
 
 #[derive(Debug)]
-pub struct InvalidSizeError(pub(crate) usize);
+pub struct InvalidSizeError(pub usize);
 impl Error for InvalidSizeError {}
 
 impl Display for InvalidSizeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "size bytes do not match any tile kind: {}B", self.0)
+    }
+}
+
+#[derive(Debug)]
+pub struct InvalidHeightError(pub u32);
+impl Error for InvalidHeightError {}
+
+impl Display for InvalidHeightError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "height does not match any tile kind: {}", self.0)
     }
 }
 
@@ -82,6 +92,16 @@ impl Kind {
         Err(InvalidSizeError(bytes))
     }
 
+    pub fn for_height(height: u32) -> Result<Self, InvalidHeightError> {
+        for kind in Self::iter() {
+            if height == kind.dimensions().height {
+                return Ok(kind);
+            }
+        }
+        Err(InvalidHeightError(height))
+    }
+
+
 }
 
 impl TryFrom<Dimensions> for Kind {
@@ -96,7 +116,7 @@ impl TryFrom<Dimensions> for Kind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub enum LoadError {
     IOError(IOError),
     ImageError(ImageError),
@@ -113,18 +133,6 @@ impl Display for LoadError {
             InvalidDimensionsError(dimensions) => write!(f, "invalid tile image size {}x{}", dimensions.width(), dimensions.height()),
             InvalidSizeError(error) => error.fmt(f),
         }
-    }
-}
-
-impl From<IOError> for LoadError {
-    fn from(error: IOError) -> Self {
-        Self::IOError(error)
-    }
-}
-
-impl From<ImageError> for LoadError {
-    fn from(error: ImageError) -> Self {
-        Self::ImageError(error)
     }
 }
 
@@ -185,10 +193,10 @@ impl TryFrom<Bytes> for Tile {
     }
 }
 
-impl TryFrom<ImageBuffer<Rgba<u8>, Vec<u8>>> for Tile {
+impl TryFrom<Image> for Tile {
     type Error = InvalidDimensionsError;
 
-    fn try_from(sub_image: ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Self, Self::Error> {
+    fn try_from(sub_image: Image) -> Result<Self, Self::Error> {
         let (width, height) = sub_image.dimensions();
         let kind = Kind::try_from(Dimensions { width, height })?;
         let mut tile = Self::new(kind);
