@@ -1,5 +1,7 @@
 /target
 /font_files
+/*.code-workspace
+/.vscode
 *.bak
 *.png
 *.bin
