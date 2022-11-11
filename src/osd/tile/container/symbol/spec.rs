@@ -11,6 +11,7 @@ use parse_int::parse;
 use regex::Regex;
 use lazy_static::lazy_static;
 
+
 #[derive(Debug, CopyGetters)]
 #[getset(get_copy = "pub")]
 pub struct Spec {

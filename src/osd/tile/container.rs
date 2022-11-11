@@ -17,8 +17,8 @@ use symbol::{
     spec::Specs as SymbolSpecs
 };
 
-use self::symbol_tiles_iter::IntoSymbolsTilesIter;
-use self::uniq_tile_kind::{TileKindError, UniqTileKind};
+use symbol_tiles_iter::IntoSymbolsTilesIter;
+use uniq_tile_kind::{TileKindError, UniqTileKind};
 
 use super::Tile;
 

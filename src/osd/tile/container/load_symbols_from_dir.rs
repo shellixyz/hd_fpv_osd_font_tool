@@ -1,5 +1,4 @@
 
-
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fs::ReadDir;
@@ -11,6 +10,7 @@ use derive_more::{Error, From};
 use regex::Regex;
 
 use crate::osd::tile::container::symbol::{LoadError as SymbolLoadError, Symbol};
+
 
 struct DirFilesIterator(ReadDir);
 

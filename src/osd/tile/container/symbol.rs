@@ -20,6 +20,7 @@ use crate::osd::tile::{
     }
 };
 
+
 #[derive(Debug, From, Error)]
 pub enum LoadError {
     IOError(IOError),

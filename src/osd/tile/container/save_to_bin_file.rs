@@ -5,6 +5,7 @@ use derive_more::{Error, Display, From};
 use crate::osd::{tile::{Tile, grid::Grid as TileGrid}, bin_file::{self, BinFileWriter}};
 use super::uniq_tile_kind::{TileKindError, UniqTileKind};
 
+
 #[derive(Debug, Error, Display, From)]
 pub enum SaveTilesToBinFileError {
     CreateError(IOError),

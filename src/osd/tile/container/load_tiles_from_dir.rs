@@ -5,6 +5,7 @@ use derive_more::{Error, From};
 
 use crate::osd::tile::{LoadError as TileLoadError, Tile};
 
+
 #[derive(Debug, Error, From)]
 pub enum LoadTilesFromDirError {
     LoadError(TileLoadError),

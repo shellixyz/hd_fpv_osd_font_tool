@@ -141,17 +141,6 @@ impl BinFileReader {
         self.read_tile().map_err(SeekReadError::IOError)
     }
 
-    // pub fn read_symbol(&mut self, span: u32) -> Result<Symbol, IOError> {
-    //     let mut tiles = Vec::with_capacity(span as usize);
-    //     for _ in 0..span { tiles.push(self.read_tile()?); }
-    //     Ok(Symbol::from(tiles))
-    // }
-
-    // pub fn seek_read_symbol(&mut self, pos: SeekFrom, span: u32) -> Result<Symbol, SeekReadError> {
-    //     self.seek(pos).map_err(SeekReadError::SeekError)?;
-    //     self.read_symbol(span).map_err(SeekReadError::IOError)
-    // }
-
     // seek to tile position
     // returns new position if new position is inside the file or SeekError otherwise
     pub fn seek(&mut self, pos: SeekFrom) -> Result<usize, SeekError> {

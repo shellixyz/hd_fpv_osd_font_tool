@@ -1,5 +1,5 @@
-use crate::osd::tile::Tile;
 
+use crate::osd::tile::Tile;
 use super::symbol::Symbol;
 
 

@@ -4,6 +4,7 @@ use std::ops::Mul;
 use derive_more::{From, Sub, Div};
 use getset::CopyGetters;
 
+
 #[derive(CopyGetters, PartialEq, Eq, PartialOrd, Ord, From, Debug, Clone, Copy, Div, Sub)]
 #[getset(get_copy = "pub")]
 pub struct Dimensions<T: PartialEq + Eq + PartialOrd + Ord + Copy + Clone> {

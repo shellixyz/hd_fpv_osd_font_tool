@@ -1,4 +1,7 @@
 
+pub mod grid;
+pub mod container;
+
 use std::error::Error;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
@@ -10,12 +13,10 @@ use strum::{EnumIter,IntoEnumIterator, Display};
 use image::{ImageBuffer, Rgba, GenericImageView, GenericImage};
 use image::io::Reader as ImageReader;
 use image::error::ImageError;
-use crate::dimensions;
 
+use crate::dimensions;
 use super::bin_file::BinFileReader;
 
-pub mod grid;
-pub mod container;
 
 pub type Dimensions = dimensions::Dimensions<u32>;
 
