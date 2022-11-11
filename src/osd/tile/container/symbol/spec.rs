@@ -37,6 +37,14 @@ impl Spec {
 #[derive(Debug, Deref)]
 pub struct Specs(Vec<Spec>);
 
+impl Specs {
+
+    pub fn find_start_index(&self, start_tile_index: usize) -> Option<&Spec> {
+        self.iter().find(|sym_spec| sym_spec.start_tile_index() == start_tile_index)
+    }
+
+}
+
 impl From<Vec<Spec>> for Specs {
     fn from(spec_vec: Vec<Spec>) -> Self {
         Self(spec_vec)

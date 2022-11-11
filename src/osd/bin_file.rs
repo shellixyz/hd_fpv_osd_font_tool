@@ -9,7 +9,9 @@ use derive_more::{From, Error};
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
-use super::tile::container::{TileKindError, UniqTileKind, IntoTileGrid, TileSet};
+use super::tile::container::into_tile_grid::IntoTileGrid;
+use super::tile::container::tile_set::TileSet;
+use super::tile::container::uniq_tile_kind::{TileKindError, UniqTileKind};
 use super::tile::{self, Tile, Kind as TileKind};
 use super::tile::grid::Grid as TileGrid;
 

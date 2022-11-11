@@ -10,7 +10,7 @@ use image::io::Reader as ImageReader;
 use strum::IntoEnumIterator;
 
 use super::Tile;
-use super::container::{UniqTileKind, TileKindError};
+use super::container::uniq_tile_kind::{UniqTileKind, TileKindError};
 use crate::dimensions;
 use crate::osd::tile;
 

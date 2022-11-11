@@ -6,11 +6,7 @@ use std::process::exit;
 
 use clap::{Parser, Subcommand};
 
-use hd_fpv_osd_font_tool::osd::bin_file;
-use hd_fpv_osd_font_tool::osd::tile::container::{IntoTileGrid, SaveTilesToDir, SaveTilesToBinFile};
-use hd_fpv_osd_font_tool::osd::tile::grid::Grid as TileGrid;
-use hd_fpv_osd_font_tool::osd::tile::container as tile_container;
-
+use hd_fpv_osd_font_tool::prelude::*;
 use hd_fpv_osd_font_tool::log_level::LogLevel;
 
 #[derive(Parser)]
@@ -172,9 +168,9 @@ fn convert_command<'a>(from: &'a String, to: &'a String) -> Result<(), ConvertEr
         },
 
         (TileDir(from_path), to_arg) => {
-            let tile_array = tile_container::load_from_dir(from_path, 512).unwrap();
+            let tile_array = load_tiles_from_dir(from_path, 512).unwrap();
             match to_arg {
-                BinFile(to_path) => tile_array.save_tiles_to_bin_file(to_path).unwrap(),
+                BinFile(to_path) => tile_array.save_to_bin_file(to_path).unwrap(),
                 TileGrid(to_path) => {
                     check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
                     tile_array.into_tile_grid().generate_image().unwrap().save(to_path).unwrap()

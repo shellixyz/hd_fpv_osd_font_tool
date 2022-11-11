@@ -1,4 +1,6 @@
 
+pub mod spec;
+
 use std::fmt::Display;
 use std::path::Path;
 use derive_more::{Index, From, Error};
@@ -8,10 +10,15 @@ use std::io::Error as IOError;
 use image::io::Reader as ImageReader;
 
 use crate::dimensions;
-use super::tile::{Tile, Kind as TileKind, InvalidHeightError};
-use super::tile::container::{TileKindError, UniqTileKind};
-
-pub mod spec;
+use crate::osd::tile::{
+    Tile,
+    Kind as TileKind,
+    InvalidHeightError,
+    container::{
+        TileKindError,
+        UniqTileKind
+    }
+};
 
 #[derive(Debug, From, Error)]
 pub enum LoadError {
