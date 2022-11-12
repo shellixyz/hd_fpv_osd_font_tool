@@ -1,6 +1,4 @@
 X Support both SD and HD tiles
 - Documentation
-- Error handling
-- Logging
-- Change all f.write_fmt(...) to write!(f, ...)
-- Check whether it would be possible to implement IntoIter instead of ProvidesTileIterator
+- Error handling (error-stack)
+- Rename errors in modules (remove useless prefixes)
