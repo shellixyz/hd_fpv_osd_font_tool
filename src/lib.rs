@@ -1,4 +1,6 @@
 
+#![forbid(unsafe_code)]
+
 pub mod dimensions;
 pub mod osd;
 pub mod prelude;
