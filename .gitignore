@@ -2,6 +2,6 @@
 /font_files
 /*.code-workspace
 /.vscode
-*.bak
+*.bak*
 *.png
 *.bin

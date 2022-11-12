@@ -40,6 +40,26 @@ pub struct Specs(Vec<Spec>);
 
 impl Specs {
 
+    pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadSpecsFileError> {
+        let file = std::fs::File::open(path)?;
+        let file_content: HashMap<String, String> = serde_yaml::from_reader(file)?;
+        lazy_static! {
+            static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();
+        }
+        let mut spec_vec = Vec::with_capacity(file_content.len());
+        for (_, spec) in file_content {
+            match SPEC_RE.captures(&spec) {
+                Some(captures) => {
+                    let (start_tile_index, span) = (captures.name("start_tile_index").unwrap(), captures.name("span").unwrap());
+                    let spec = Spec::new(parse(start_tile_index.as_str()).unwrap(), parse(span.as_str()).unwrap());
+                    spec_vec.push(spec);
+                },
+                None => panic!("no match"),
+            }
+        }
+        Ok(spec_vec.into())
+    }
+
     pub fn find_start_index(&self, start_tile_index: usize) -> Option<&Spec> {
         self.iter().find(|sym_spec| sym_spec.start_tile_index() == start_tile_index)
     }
@@ -70,24 +90,4 @@ impl Display for LoadSpecsFileError {
             IOError(error) => error.fmt(f),
         }
     }
-}
-
-pub fn load_specs_file<P: AsRef<Path>>(path: P) -> Result<Specs, LoadSpecsFileError> {
-    let file = std::fs::File::open(path)?;
-    let file_content: HashMap<String, String> = serde_yaml::from_reader(file)?;
-    lazy_static! {
-        static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();
-    }
-    let mut spec_vec = Vec::with_capacity(file_content.len());
-    for (_, spec) in file_content {
-        match SPEC_RE.captures(&spec) {
-            Some(captures) => {
-                let (start_tile_index, span) = (captures.name("start_tile_index").unwrap(), captures.name("span").unwrap());
-                let spec = Spec::new(parse(start_tile_index.as_str()).unwrap(), parse(span.as_str()).unwrap());
-                spec_vec.push(spec);
-            },
-            None => panic!("no match"),
-        }
-    }
-    Ok(spec_vec.into())
 }

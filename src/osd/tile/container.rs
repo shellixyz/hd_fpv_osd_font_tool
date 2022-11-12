@@ -9,6 +9,7 @@ pub mod load_tiles_from_dir;
 pub mod save_symbols_to_dir;
 pub mod symbol_tiles_iter;
 pub mod load_symbols_from_dir;
+pub mod save_to_grid;
 
 use tap::Tap;
 
@@ -44,11 +45,11 @@ impl<'a> AsTilesVec<'a> for &[Symbol] {
 }
 
 pub trait ToSymbols {
-    fn to_symbols(&self, specs: SymbolSpecs) -> Result<Vec<Symbol>, TileKindError>;
+    fn to_symbols(&self, specs: &SymbolSpecs) -> Result<Vec<Symbol>, TileKindError>;
 }
 
 impl ToSymbols for &[Tile] {
-    fn to_symbols(&self, specs: SymbolSpecs) -> Result<Vec<Symbol>, TileKindError> {
+    fn to_symbols(&self, specs: &SymbolSpecs) -> Result<Vec<Symbol>, TileKindError> {
         let mut tile_index = 0;
         let mut symbols = vec![];
         while tile_index < self.len() {
@@ -67,7 +68,7 @@ impl ToSymbols for &[Tile] {
 }
 
 impl ToSymbols for Vec<Tile> {
-    fn to_symbols(&self, specs: SymbolSpecs) -> Result<Vec<Symbol>, TileKindError> {
+    fn to_symbols(&self, specs: &SymbolSpecs) -> Result<Vec<Symbol>, TileKindError> {
         self.as_slice().to_symbols(specs)
     }
 }

@@ -28,17 +28,34 @@ impl Display for TileKindError {
     }
 }
 
-pub trait IterUniqTileKind {
+pub trait TilesIterUniqTileKind {
     fn tile_kind(&mut self) -> Result<TileKind, TileKindError>;
 }
 
-impl<'a, T> IterUniqTileKind for T
+impl<'a, T> TilesIterUniqTileKind for T
 where
     T: Iterator<Item = &'a Tile>
 {
     fn tile_kind(&mut self) -> Result<TileKind, TileKindError> {
         let first_tile_kind = self.next().ok_or(TileKindError::EmptyContainer)?.kind();
         if ! self.all(|tile| tile.kind() == first_tile_kind) {
+            return Err(TileKindError::MultipleTileKinds)
+        }
+        Ok(first_tile_kind)
+    }
+}
+
+pub trait SymbolsIterUniqTileKind {
+    fn tile_kind(&mut self) -> Result<TileKind, TileKindError>;
+}
+
+impl<'a, B> SymbolsIterUniqTileKind for B
+where
+    B: Iterator<Item = &'a Symbol>
+{
+    fn tile_kind(&mut self) -> Result<TileKind, TileKindError> {
+        let first_tile_kind = self.next().ok_or(TileKindError::EmptyContainer)?.tile_kind();
+        if ! self.all(|symbol| symbol.tile_kind() == first_tile_kind) {
             return Err(TileKindError::MultipleTileKinds)
         }
         Ok(first_tile_kind)
@@ -66,3 +83,9 @@ impl UniqTileKind for &[Symbol] {
         self.tiles_iter().tile_kind()
     }
 }
+impl UniqTileKind for Vec<Symbol> {
+    fn tile_kind(&self) -> Result<TileKind, TileKindError> {
+        self.as_slice().tile_kind()
+    }
+}
+

@@ -220,7 +220,7 @@ pub enum FontPart {
     Ext
 }
 
-pub fn normalized_file_name(tile_kind: TileKind, ident: Option<&str>, part: FontPart) -> PathBuf {
+pub fn normalized_file_name(tile_kind: TileKind, ident: &Option<&str>, part: FontPart) -> PathBuf {
     let font_part_str = match part {
         FontPart::Base => "",
         FontPart::Ext => "_2",
@@ -236,11 +236,11 @@ pub fn normalized_file_name(tile_kind: TileKind, ident: Option<&str>, part: Font
     PathBuf::from(format!("font{ident}{tile_kind_str}{font_part_str}.bin"))
 }
 
-pub fn normalized_file_path<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>, part: FontPart) -> PathBuf {
+pub fn normalized_file_path<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>, part: FontPart) -> PathBuf {
     [dir.as_ref().to_path_buf(), normalized_file_name(tile_kind, ident, part)].into_iter().collect()
 }
 
-pub fn load_base_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadError> {
+pub fn load_base_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadError> {
     let tiles = load(normalized_file_path(&dir, tile_kind, ident, FontPart::Base))?;
     let loaded_tile_kind = tiles.tile_kind()?;
     if loaded_tile_kind != tile_kind {
@@ -249,7 +249,7 @@ pub fn load_base_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Op
     Ok(tiles)
 }
 
-pub fn load_extended_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadError> {
+pub fn load_extended_norm<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadError> {
     let base_path = normalized_file_path(&dir, tile_kind, ident, FontPart::Base);
     let ext_path = normalized_file_path(&dir, tile_kind, ident, FontPart::Ext);
     let tiles = load_extended(base_path, ext_path)?;
@@ -262,10 +262,16 @@ pub fn load_extended_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident
 
 impl TileSet {
 
-    pub fn load_from_bin_files_in_dir<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<Self, LoadSetError> {
+    pub fn load_bin_files<P: AsRef<Path>>(sd_path: P, sd_2_path: P, hd_path: P, hd_2_path: P) -> Result<Self, LoadError> {
+        let sd_tiles = load_extended(sd_path, sd_2_path)?;
+        let hd_tiles = load_extended(hd_path, hd_2_path)?;
+        Ok(Self { sd_tiles, hd_tiles })
+    }
 
-        fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
-            load_extended_from_dir(&dir, tile_kind, ident).map_err(|error|
+    pub fn load_bin_file_set_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<Self, LoadSetError> {
+
+        fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
+            load_extended_norm(&dir, tile_kind, ident).map_err(|error|
                     if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
                         match tile_kind {
                             TileKind::SD => LoadSetError::WrongTileKindInSDFiles,
@@ -305,8 +311,12 @@ impl Display for LoadSetError {
     }
 }
 
-pub fn load_set<P: AsRef<Path>>(dir: P, ident: Option<&str>) -> Result<TileSet, LoadSetError> {
-    TileSet::load_from_bin_files_in_dir(dir, ident)
+pub fn load_set<P: AsRef<Path>>(sd_path: P, sd_2_path: P, hd_path: P, hd_2_path: P) -> Result<TileSet, LoadError> {
+    TileSet::load_bin_files(sd_path, sd_2_path, hd_path, hd_2_path)
+}
+
+pub fn load_set_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<TileSet, LoadSetError> {
+    TileSet::load_bin_file_set_norm(dir, ident)
 }
 
 #[derive(Debug, From)]

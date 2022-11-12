@@ -1,5 +1,6 @@
 
 pub mod spec;
+pub mod set;
 
 use std::fmt::Display;
 use std::path::Path;
