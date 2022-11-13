@@ -102,6 +102,37 @@ impl Display for ConvertError {
     }
 }
 
+fn convert_tiles(tiles: Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
+    use ConvertArg::*;
+    match to_arg {
+        TileGrid(to_path) => {
+            check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
+            tiles.save_to_grid_image(to_path)?
+        },
+        TileDir(to_path) => tiles.save_tiles_to_dir(to_path)?,
+        SymbolDir(to_path) => {
+            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
+            tiles.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
+        },
+        BinFile(to_path) => tiles.save_to_bin_file(to_path)?,
+    }
+    Ok(())
+}
+
+fn convert_tile_grid(tile_grid: TileGrid, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
+    use ConvertArg::*;
+    match to_arg {
+        BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path)?,
+        TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path)?,
+        SymbolDir(to_path) => {
+            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
+            tile_grid.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
+        },
+        TileGrid(to_path) => tile_grid.save_image(to_path)?
+    }
+    Ok(())
+}
+
 pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow::Result<()> {
     let from_arg = identify_convert_arg(from).map_err(ConvertError::FromArg)?;
     let to_arg = identify_convert_arg(to).map_err(ConvertError::ToArg)?;
@@ -113,59 +144,24 @@ pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow:
             Err(ConvertError::InvalidConversion { from_prefix: from_arg.prefix().to_owned(), to_prefix: to_arg.prefix().to_owned()})?,
 
         (BinFile(from_path), to_arg) => {
-            let bin_file_tiles = bin_file::load(from_path).unwrap();
-            match to_arg {
-                TileGrid(to_path) => {
-                    check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-                    bin_file_tiles.save_to_grid_image(to_path).unwrap()
-                },
-                TileDir(to_path) => bin_file_tiles.save_tiles_to_dir(to_path).unwrap(),
-                SymbolDir(to_path) => {
-                    let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file).unwrap();
-                    bin_file_tiles.to_symbols(&sym_specs).unwrap().save_to_dir(to_path).unwrap();
-                },
-                _ => unreachable!()
-            }
+            let tiles = bin_file::load(from_path)?;
+            convert_tiles(tiles, to_arg, &options)?;
         },
 
         (TileGrid(from_path), to_arg) => {
             check_arg_image_file_extension(from_path).map_err(ConvertError::FromArg)?;
-            let tile_grid = crate::TileGrid::load_from_image(from_path).unwrap();
-            match to_arg {
-                BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path).unwrap(),
-                TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path).unwrap(),
-                SymbolDir(to_path) => {
-                    let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file).unwrap();
-                    tile_grid.to_symbols(&sym_specs).unwrap().save_to_dir(to_path).unwrap();
-                },
-                _ => unreachable!()
-            }
+            let tile_grid = crate::TileGrid::load_from_image(from_path)?;
+            convert_tile_grid(tile_grid, to_arg, &options)?;
         },
 
         (TileDir(from_path), to_arg) => {
-            let tiles = load_tiles_from_dir(from_path, 512).unwrap();
-            match to_arg {
-                BinFile(to_path) => tiles.save_to_bin_file(to_path).unwrap(),
-                TileGrid(to_path) => {
-                    check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-                    tiles.save_to_grid_image(to_path).unwrap()
-                },
-                SymbolDir(to_path) => {
-                    let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file).unwrap();
-                    tiles.to_symbols(&sym_specs).unwrap().save_to_dir(to_path).unwrap();
-                },
-                _ => unreachable!()
-            }
+            let tiles = load_tiles_from_dir(from_path, 512)?;
+            convert_tiles(tiles, to_arg, &options)?;
         },
 
         (SymbolDir(from_path), to_arg) => {
-            let tiles = load_symbols_from_dir(from_path, 512).unwrap().into_tiles_vec();
-            match to_arg {
-                BinFile(to_path) => tiles.save_to_bin_file(to_path).unwrap(),
-                TileGrid(to_path) => tiles.into_tile_grid().generate_image().unwrap().save(to_path).unwrap(),
-                TileDir(to_path) => tiles.save_tiles_to_dir(to_path).unwrap(),
-                _ => unreachable!()
-            }
+            let tiles = load_symbols_from_dir(from_path, 512)?.into_tiles_vec();
+            convert_tiles(tiles, to_arg, &options)?;
         }
 
     }

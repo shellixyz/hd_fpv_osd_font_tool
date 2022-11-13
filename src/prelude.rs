@@ -2,6 +2,7 @@
 pub use crate::osd::{
     bin_file,
     tile::{
+        Tile,
         container::{
             into_tile_grid::IntoTileGrid,
             load_symbols_from_dir::load_symbols_from_dir,
