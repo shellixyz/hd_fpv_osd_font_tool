@@ -1,20 +1,21 @@
 
 use std::path::{Path, PathBuf};
 use std::io::{Read, Seek, Write, Error as IOError};
-use std::fmt::Display;
 use std::fs::File;
 
 use close_err::Closable;
-use derive_more::{From, Error};
+use derive_more::From;
+use thiserror::Error;
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
 use super::tile::container::into_tile_grid::IntoTileGrid;
 use super::tile::container::tile_set::TileSet;
-use super::tile::container::uniq_tile_kind::{TileKindError, UniqTileKind};
+use super::tile::container::uniq_tile_kind::UniqTileKind;
 use super::tile::{self, Tile, Kind as TileKind};
 use super::tile::grid::Grid as TileGrid;
 use crate::file::{self, Error as FileError, Action as FileAction};
+use crate::osd::tile::InvalidSizeError;
 
 pub const TILE_COUNT: usize = 256;
 
@@ -24,9 +25,9 @@ impl tile::Kind {
         self.raw_rgba_size_bytes() * TILE_COUNT
     }
 
-    pub fn for_bin_file_size_bytes(bytes: usize) -> Result<Self, tile::InvalidSizeError> {
+    pub fn for_bin_file_size_bytes(bytes: u64) -> Result<Self, tile::InvalidSizeError> {
         for kind in Self::iter() {
-            if bytes == kind.bin_file_size_bytes() {
+            if bytes == kind.bin_file_size_bytes() as u64 {
                 return Ok(kind);
             }
         }
@@ -37,40 +38,40 @@ impl tile::Kind {
 
 #[derive(Debug, From, Error)]
 pub enum OpenError {
+    #[error(transparent)]
     FileError(FileError),
     #[from(ignore)]
-    InvalidSizeError
-}
-
-impl Display for OpenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use OpenError::*;
-        match self {
-            InvalidSizeError => f.write_str("File size does not match a valid bin file size"),
-            FileError(error) => error.fmt(f),
-        }
+    #[error("file {file_path} has a size ({size}B) which does not match a valid bin file size")]
+    InvalidSizeError {
+        file_path: PathBuf,
+        size: u64
     }
 }
 
-impl From<tile::InvalidSizeError> for OpenError {
-    fn from(_: tile::InvalidSizeError) -> Self {
-        OpenError::InvalidSizeError
+impl OpenError {
+    pub fn invalid_size<P: AsRef<Path>>(file_path: P, size: u64) -> Self {
+        Self::InvalidSizeError { file_path: file_path.as_ref().to_path_buf(), size }
     }
 }
 
 #[derive(Debug, Error)]
 pub enum SeekError {
-    IOError(IOError),
-    OutOfBoundsError
+    #[error(transparent)]
+    FileError(FileError),
+    #[error("cannot seek outside of the file ({file_path}) new position would be {new_pos}")]
+    OutOfBoundsError {
+        file_path: PathBuf,
+        new_pos: isize
+    }
 }
 
-impl Display for SeekError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use SeekError::*;
-        match self {
-            IOError(io_error) => io_error.fmt(f),
-            OutOfBoundsError => f.write_str("Cannot seek outside of the file"),
-        }
+impl SeekError {
+    pub fn file_seek_error<P: AsRef<Path>>(file_path: P, error: IOError) -> Self {
+        Self::FileError(FileError::new(FileAction::Seek, file_path, error))
+    }
+
+    pub fn out_of_bounds<P: AsRef<Path>>(file_path: P, new_pos: isize) -> Self {
+        Self::OutOfBoundsError { file_path: file_path.as_ref().to_path_buf(), new_pos }
     }
 }
 
@@ -82,21 +83,19 @@ pub enum SeekReadError {
 
 #[derive(Debug, From, Error)]
 pub enum LoadError {
+    #[error(transparent)]
     OpenError(OpenError),
+    #[error(transparent)]
     ReadError(FileError),
-    TileKindError(TileKindError),
-    WrongSizeError,
+    #[error("tile kind loaded from {file_path} does not match requested: load {loaded}, requested {requested}")]
+    LoadedTileKindDoesNotMatchRequested { file_path: PathBuf, loaded: TileKind, requested: TileKind },
+    #[error("File size does not match a valid bin file size: file {file_path}, size {size}B")]
+    WrongSizeError { file_path: PathBuf, size: u64 },
 }
 
-impl Display for LoadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use LoadError::*;
-        match self {
-            OpenError(error) => error.fmt(f),
-            ReadError(error) => error.fmt(f),
-            WrongSizeError => f.write_str("File size does not match a valid bin file size"),
-            TileKindError(error) => error.fmt(f),
-        }
+impl LoadError {
+    pub fn tile_kind_mismatch<P: AsRef<Path>>(file_path: P, loaded: TileKind, requested: TileKind) -> Self {
+        Self::LoadedTileKindDoesNotMatchRequested { file_path: file_path.as_ref().to_path_buf(), loaded, requested }
     }
 }
 
@@ -122,7 +121,11 @@ impl BinFileReader {
 
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, OpenError> {
         let file = file::open(&path)?;
-        let tile_kind = tile::Kind::for_bin_file_size_bytes(file.metadata().unwrap().len() as usize)?;
+        let tile_kind = tile::Kind::for_bin_file_size_bytes(file.metadata().unwrap().len())
+            .map_err(|error| {
+                let InvalidSizeError(size) = error;
+                OpenError::invalid_size(&path, size)
+            })?;
         log::info!("detected {} kind of tiles in {}", tile_kind, path.as_ref().to_string_lossy());
         Ok(Self { file, file_path: path.as_ref().to_path_buf(), tile_kind, pos: 0 })
     }
@@ -152,10 +155,11 @@ impl BinFileReader {
             SeekFrom::Current(pos_from_current) => self.pos as isize + pos_from_current,
         };
         if new_pos < 0 || new_pos >= TILE_COUNT as isize {
-            return Err(SeekError::OutOfBoundsError);
+            return Err(SeekError::out_of_bounds(&self.file_path, new_pos));
         }
         let new_pos= new_pos * self.tile_kind.raw_rgba_size_bytes() as isize;
-        self.file.seek(std::io::SeekFrom::Start(new_pos as u64)).map_err(SeekError::IOError)?;
+        self.file.seek(std::io::SeekFrom::Start(new_pos as u64))
+            .map_err(|error| SeekError::file_seek_error(&self.file_path, error))?;
         self.pos = new_pos as usize;
         Ok(self.pos)
     }
@@ -210,10 +214,43 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<Vec<Tile>, LoadError> {
     Ok(BinFileReader::open(path)?.read_tiles()?)
 }
 
+pub fn load_norm<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>, part: FontPart) -> Result<Vec<Tile>, LoadError> {
+    let file_path = normalized_file_path(&dir, tile_kind, ident, part);
+    let tiles = load(&file_path)?;
+    let loaded_tile_kind = tiles.tile_kind().unwrap();
+    if loaded_tile_kind != tile_kind {
+        return Err(LoadError::tile_kind_mismatch(&file_path, loaded_tile_kind, tile_kind));
+    }
+    Ok(tiles)
+}
+
 pub fn load_extended<P: AsRef<Path>>(base_path: P, ext_path: P) -> Result<Vec<Tile>, LoadError> {
-    let mut tiles = load(base_path)?;
-    tiles.append(&mut load(ext_path)?);
-    tiles.tile_kind()?;
+    let base_tiles = load(&base_path)?;
+    let base_tile_kind = base_tiles.tile_kind().expect("should not fail for collections from bin files");
+    let ext_tiles = load(&ext_path)?;
+    let ext_tile_kind = ext_tiles.tile_kind().expect("should not fail for collections from bin files");
+    if ext_tile_kind != base_tile_kind {
+        return Err(LoadError::tile_kind_mismatch(&ext_path, ext_tile_kind, base_tile_kind))
+    }
+    let tiles = [base_tiles, ext_tiles].into_iter().flatten().collect();
+    Ok(tiles)
+}
+
+pub fn load_extended_check_kind<P: AsRef<Path>>(base_path: P, ext_path: P, requested_tile_kind: TileKind) -> Result<Vec<Tile>, LoadError> {
+
+    fn check_tile_kind<P: AsRef<Path>>(file_path: P, tiles: &[Tile], expected_tile_kind: TileKind) -> Result<(), LoadError> {
+        let tile_kind = tiles.tile_kind().expect("should not fail for collections from bin files");
+        if tile_kind != expected_tile_kind {
+            return Err(LoadError::tile_kind_mismatch(file_path, tile_kind, expected_tile_kind))
+        }
+        Ok(())
+    }
+
+    let base_tiles = load(&base_path)?;
+    check_tile_kind(&base_path, &base_tiles, requested_tile_kind)?;
+    let ext_tiles = load(&ext_path)?;
+    check_tile_kind(&ext_path, &ext_tiles, requested_tile_kind)?;
+    let tiles = [base_tiles, ext_tiles].into_iter().flatten().collect();
     Ok(tiles)
 }
 
@@ -242,132 +279,76 @@ pub fn normalized_file_path<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: 
     [dir.as_ref().to_path_buf(), normalized_file_name(tile_kind, ident, part)].into_iter().collect()
 }
 
-pub fn load_base_from_dir<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadError> {
-    let tiles = load(normalized_file_path(&dir, tile_kind, ident, FontPart::Base))?;
-    let loaded_tile_kind = tiles.tile_kind()?;
-    if loaded_tile_kind != tile_kind {
-        return Err(LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { requested: tile_kind, loaded: loaded_tile_kind }));
-    }
-    Ok(tiles)
+pub fn load_base_norm<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadError> {
+    load_norm(dir, tile_kind, ident, FontPart::Base)
 }
 
 pub fn load_extended_norm<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadError> {
-    let base_path = normalized_file_path(&dir, tile_kind, ident, FontPart::Base);
-    let ext_path = normalized_file_path(&dir, tile_kind, ident, FontPart::Ext);
-    let tiles = load_extended(base_path, ext_path)?;
-    let loaded_tile_kind = tiles.tile_kind()?;
-    if loaded_tile_kind != tile_kind {
-        return Err(LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { requested: tile_kind, loaded: loaded_tile_kind }));
-    }
+    let base_tiles = load_norm(&dir, tile_kind, ident, FontPart::Base)?;
+    let ext_tiles = load_norm(&dir, tile_kind, ident, FontPart::Ext)?;
+    let tiles = [base_tiles, ext_tiles].into_iter().flatten().collect();
     Ok(tiles)
 }
 
 impl TileSet {
 
     pub fn load_bin_files<P: AsRef<Path>>(sd_path: P, sd_2_path: P, hd_path: P, hd_2_path: P) -> Result<Self, LoadError> {
-        let sd_tiles = load_extended(sd_path, sd_2_path)?;
-        let hd_tiles = load_extended(hd_path, hd_2_path)?;
+        let sd_tiles = load_extended_check_kind(&sd_path, &sd_2_path, TileKind::SD)?;
+        let hd_tiles = load_extended_check_kind(&hd_path, &hd_2_path, TileKind::HD)?;
         Ok(Self { sd_tiles, hd_tiles })
     }
 
-    pub fn load_bin_file_set_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<Self, LoadSetError> {
-
-        fn load_tiles<P: AsRef<Path>>(dir: P, tile_kind: TileKind, ident: &Option<&str>) -> Result<Vec<Tile>, LoadSetError> {
-            load_extended_norm(&dir, tile_kind, ident).map_err(|error|
-                    if let LoadError::TileKindError(TileKindError::LoadedDoesNotMatchRequested { .. }) = error {
-                        match tile_kind {
-                            TileKind::SD => LoadSetError::WrongTileKindInSDFiles,
-                            TileKind::HD => LoadSetError::WrongTileKindInHDFiles,
-                        }
-                    } else {
-                        error.into()
-                    }
-            )
-        }
-
-        let sd_tiles = load_tiles(&dir, TileKind::SD, ident)?;
-        let hd_tiles = load_tiles(&dir, TileKind::HD, ident)?;
-
+    pub fn load_bin_files_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<Self, LoadError> {
+        let sd_tiles = load_extended_norm(&dir, TileKind::SD, ident)?;
+        let hd_tiles = load_extended_norm(&dir, TileKind::HD, ident)?;
         Ok(Self { sd_tiles, hd_tiles })
     }
 
-}
-
-#[derive(Debug, Error, From)]
-pub enum LoadSetError {
-    LoadError(LoadError),
-    TileKindError(TileKindError),
-    WrongTileKindInSDFiles,
-    WrongTileKindInHDFiles,
-}
-
-impl Display for LoadSetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use LoadSetError::*;
-        match self {
-            LoadError(error) => error.fmt(f),
-            WrongTileKindInSDFiles => f.write_str("wrong tile kind in SD files"),
-            WrongTileKindInHDFiles => f.write_str("wrong tile kind in HD files"),
-            TileKindError(error) => error.fmt(f),
-        }
-    }
 }
 
 pub fn load_set<P: AsRef<Path>>(sd_path: P, sd_2_path: P, hd_path: P, hd_2_path: P) -> Result<TileSet, LoadError> {
     TileSet::load_bin_files(sd_path, sd_2_path, hd_path, hd_2_path)
 }
 
-pub fn load_set_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<TileSet, LoadSetError> {
-    TileSet::load_bin_file_set_norm(dir, ident)
+pub fn load_set_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<TileSet, LoadError> {
+    TileSet::load_bin_files_norm(dir, ident)
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, From, Error)]
 pub enum TileWriteError {
-    IOError(IOError),
+    #[error(transparent)]
+    FileError(FileError),
     #[from(ignore)]
+    #[error("Already written tiles of kind {written_kind} and trying to now write tiles of kind {writing_kind}")]
     TileKindMismatchError {
         written_kind: TileKind,
         writing_kind: TileKind
     },
     #[from(ignore)]
+    #[error("Maximum number of tiles reached: a bin file can only contain 256 tiles maximum")]
     MaximumTilesReached,
+    #[error("Not enough tiles, a bin file must contain exactly 256 tiles")]
     NotEnoughTiles(BinFileWriter)
 }
 
-impl std::error::Error for TileWriteError {}
-
-impl Display for TileWriteError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use TileWriteError::*;
-        match self {
-            IOError(io_error) => io_error.fmt(f),
-            MaximumTilesReached => write!(f, "Maximum number of tiles reached: a bin file can only contain {} tiles maximum", TILE_COUNT),
-            NotEnoughTiles(_) => write!(f, "Not enough tiles, a bin file must contain exactly {} tiles", TILE_COUNT),
-            TileKindMismatchError { written_kind, writing_kind } =>
-                write!(f, "Already written tiles of kind {} and trying to now write tiles of kind {}", written_kind, writing_kind),
-        }
+impl TileWriteError {
+    pub fn file_error<P: AsRef<Path>>(file_path: P, file_action: FileAction, error: IOError) -> Self {
+        Self::FileError(FileError::new(file_action, file_path, error))
     }
 }
 
 #[derive(Debug, Error, From)]
 pub enum FillRemainingSpaceError {
+    #[error(transparent)]
     TileWrite(TileWriteError),
     #[from(ignore)]
+    #[error("bin file is empty, cannot determine tile kind to write")]
     Empty
-}
-
-impl Display for FillRemainingSpaceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use FillRemainingSpaceError::*;
-        match self {
-            TileWrite(error) => error.fmt(f),
-            Empty => f.write_str("bin file is empty, cannot determine tile kind to write"),
-        }
-    }
 }
 
 #[derive(Debug)]
 pub struct BinFileWriter {
+    file_path: PathBuf,
     file: File,
     tile_count: usize,
     tile_kind: Option<TileKind>,
@@ -377,6 +358,7 @@ impl BinFileWriter {
 
     pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, FileError> {
         Ok(Self {
+            file_path: path.as_ref().to_path_buf(),
             file: file::create(path)?,
             tile_count: 0,
             tile_kind: None
@@ -393,7 +375,7 @@ impl BinFileWriter {
             },
             None => self.tile_kind = Some(tile.kind()),
         }
-        self.file.write_all(tile.as_raw())?;
+        self.file.write_all(tile.as_raw()).map_err(|error| TileWriteError::file_error(&self.file_path, FileAction::Write, error))?;
         self.tile_count += 1;
         Ok(())
     }
@@ -415,7 +397,7 @@ impl BinFileWriter {
         if self.tile_count < TILE_COUNT {
             return Err(TileWriteError::NotEnoughTiles(self));
         }
-        self.file.close().map_err(TileWriteError::IOError)?;
+        self.file.close().map_err(|error| TileWriteError::file_error(self.file_path, FileAction::Close, error))?;
         Ok(())
     }
 

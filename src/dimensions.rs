@@ -1,5 +1,5 @@
 
-use std::ops::Mul;
+use std::{ops::Mul, fmt::Display};
 
 use derive_more::{From, Sub, Div};
 use getset::CopyGetters;
@@ -7,14 +7,20 @@ use getset::CopyGetters;
 
 #[derive(CopyGetters, PartialEq, Eq, PartialOrd, Ord, From, Debug, Clone, Copy, Div, Sub)]
 #[getset(get_copy = "pub")]
-pub struct Dimensions<T: PartialEq + Eq + PartialOrd + Ord + Copy + Clone> {
+pub struct Dimensions<T: PartialEq + Eq + PartialOrd + Ord + Copy + Clone + Display> {
     pub width: T,
     pub height: T
 }
 
-impl<T: PartialEq + Eq + PartialOrd + Ord + Copy> Dimensions<T> {
+impl<T: PartialEq + Eq + PartialOrd + Ord + Copy + Display> Dimensions<T> {
     pub const fn new(width: T, height: T) -> Self {
         Self { width, height }
+    }
+}
+
+impl<T: PartialEq + Eq + PartialOrd + Ord + Copy + Display> Display for Dimensions<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{}", self.width, self.height)
     }
 }
 
@@ -26,7 +32,7 @@ impl<T: PartialEq + Eq + PartialOrd + Ord + Copy> Dimensions<T> {
 //     }
 // }
 
-impl<T: PartialOrd + Ord + Copy + Mul<Output = T>> Mul<T> for Dimensions<T> {
+impl<T: PartialOrd + Ord + Copy + Mul<Output = T> + Display> Mul<T> for Dimensions<T> {
     type Output = Self;
 
     fn mul(self, rhs: T) -> Self::Output {
@@ -34,7 +40,7 @@ impl<T: PartialOrd + Ord + Copy + Mul<Output = T>> Mul<T> for Dimensions<T> {
     }
 }
 
-impl<T: PartialOrd + Ord + Copy + Mul<Output = T>> Mul for Dimensions<T> {
+impl<T: PartialOrd + Ord + Copy + Mul<Output = T> + Display> Mul for Dimensions<T> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {

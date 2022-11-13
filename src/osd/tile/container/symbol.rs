@@ -6,9 +6,7 @@ use std::fmt::Display;
 use std::path::Path;
 use derive_more::{Index, From, Error};
 use getset::CopyGetters;
-use image::{ImageBuffer, Rgba, GenericImage, ImageError, GenericImageView};
-use std::io::Error as IOError;
-use image::io::Reader as ImageReader;
+use image::{ImageBuffer, Rgba, GenericImage, GenericImageView};
 
 use crate::dimensions;
 use crate::osd::tile::{
@@ -20,12 +18,12 @@ use crate::osd::tile::{
         UniqTileKind
     }
 };
+use crate::image::{read_image_file, ReadError as ImageReadError};
 
 
 #[derive(Debug, From, Error)]
 pub enum LoadError {
-    IOError(IOError),
-    ImageError(ImageError),
+    ImageReadError(ImageReadError),
     InvalidImageHeightError(InvalidHeightError),
     InvalidImageWidthError {
         tile_kind: TileKind,
@@ -37,8 +35,7 @@ impl Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use LoadError::*;
         match self {
-            IOError(io_error) => io_error.fmt(f),
-            ImageError(image_error) => image_error.fmt(f),
+            ImageReadError(image_error) => image_error.fmt(f),
             InvalidImageWidthError { tile_kind, image_width } => write!(f, "invalid tile image width for {tile_kind} tile kind: {image_width}"),
             InvalidImageHeightError(error) => error.fmt(f),
         }
@@ -63,7 +60,7 @@ impl Symbol {
     }
 
     pub fn load_image_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadError> {
-        let image = ImageReader::open(path)?.decode()?;
+        let image = read_image_file(&path)?;
         let (image_width, image_height) = image.dimensions();
         let tile_kind = TileKind::for_height(image_height)?;
         let tile_dimensions = tile_kind.dimensions();

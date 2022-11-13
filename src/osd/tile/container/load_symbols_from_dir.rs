@@ -1,13 +1,12 @@
 
 use std::collections::BTreeMap;
-use std::fmt::Display;
 use std::fs::ReadDir;
 use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 
 use lazy_static::lazy_static;
-use derive_more::{Error, From};
 use regex::Regex;
+use thiserror::Error;
 
 use crate::osd::tile::container::symbol::{LoadError as SymbolLoadError, Symbol};
 
@@ -36,30 +35,36 @@ fn dir_files_iter<P: AsRef<Path>>(path: P) -> Result<DirFilesIterator, IOError> 
     Ok(DirFilesIterator(std::fs::read_dir(path)?))
 }
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum LoadSymbolsFromDirError {
-    IOError(IOError),
-    LoadError(SymbolLoadError),
+    #[error("failed to list files from directory {dir_path}: {error}")]
+    DirListFiles { dir_path: PathBuf, error: IOError },
+    #[error(transparent)]
+    LoadError(#[from] SymbolLoadError),
+    #[error("overlapping symbol files: {0} and {1}")]
     OverlappingSymbolFiles(PathBuf, PathBuf),
+    #[error("symbol span {real_span} does not match span from file name {file_name}")]
     SymbolSpanDoesNotMatchName {
         file_name: PathBuf,
         real_span: usize,
     },
-    NoSymbolFound,
-    KindMismatchError
+    #[error("no symbol found in directory: {0}")]
+    NoSymbolFound(PathBuf),
+    #[error("directory should contain a single kind of tile: {0}")]
+    KindMismatch(PathBuf)
 }
 
-impl Display for LoadSymbolsFromDirError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use LoadSymbolsFromDirError::*;
-        match self {
-            LoadError(load_error) => load_error.fmt(f),
-            KindMismatchError => f.write_str("directory contains different kinds of tiles"),
-            IOError(error) => error.fmt(f),
-            OverlappingSymbolFiles(file1, file2) => write!(f, "overlapping symbol files: `{}` and `{}`", file1.to_string_lossy(), file2.to_string_lossy()),
-            SymbolSpanDoesNotMatchName { real_span, file_name } => write!(f, "symbol span {real_span} does not match span from file name {}", file_name.to_string_lossy()),
-            NoSymbolFound => f.write_str("no symbol found"),
-        }
+impl LoadSymbolsFromDirError {
+    pub fn dir_list_files<P: AsRef<Path>>(dir_path: P, error: IOError) -> Self {
+        Self::DirListFiles { dir_path: dir_path.as_ref().to_path_buf(), error }
+    }
+
+    pub fn kind_mismatch<P: AsRef<Path>>(dir_path: P) -> Self {
+        Self::KindMismatch(dir_path.as_ref().to_path_buf())
+    }
+
+    pub fn no_symbol_found<P: AsRef<Path>>(dir_path: P) -> Self {
+        Self::NoSymbolFound(dir_path.as_ref().to_path_buf())
     }
 }
 
@@ -111,8 +116,9 @@ fn identify_file_name<P: AsRef<Path>>(path: P) -> Option<SymbolDirFileType> {
 pub fn load_symbols_from_dir<P: AsRef<Path>>(dir_path: P, max_symbols: usize) -> Result<Vec<Symbol>, LoadSymbolsFromDirError> {
 
     let mut symbol_files = BTreeMap::new();
-    for file_path in dir_files_iter(&dir_path)? {
-        let file_path = file_path?;
+    let dir_files_iter = dir_files_iter(&dir_path).map_err(|error| LoadSymbolsFromDirError::dir_list_files(&dir_path, error))?;
+    for file_path in dir_files_iter {
+        let file_path = file_path.map_err(|error| LoadSymbolsFromDirError::dir_list_files(&dir_path, error))?;
 
         if let Some(file_type) = identify_file_name(&file_path) {
             use std::collections::btree_map;
@@ -151,11 +157,16 @@ pub fn load_symbols_from_dir<P: AsRef<Path>>(dir_path: P, max_symbols: usize) ->
                         Some(loaded_symbol)
                     }
                     Err(error) => match &error {
-                        SymbolLoadError::IOError(io_error) =>
-                            match io_error.kind() {
-                                std::io::ErrorKind::NotFound => None,
-                                _ => return Err(error.into()),
-                            },
+                        SymbolLoadError::ImageReadError(image_error) => {
+                            use crate::image::ReadError::*;
+                            match image_error {
+                                OpenError(open_error) => match open_error.error().kind() {
+                                    std::io::ErrorKind::NotFound => None,
+                                    _ => return Err(error.into()),
+                                },
+                                DecodeError {..} => return Err(error.into()),
+                            }
+                        },
                         _ => return Err(error.into())
                     },
                 }
@@ -174,7 +185,7 @@ pub fn load_symbols_from_dir<P: AsRef<Path>>(dir_path: P, max_symbols: usize) ->
 
             // we have already loaded a tile before, check that the new tile kind is matching what had recorded
             (Some(symbol), Some(tile_kind)) => if symbol.tile_kind() != *tile_kind {
-                return Err(LoadSymbolsFromDirError::KindMismatchError)
+                return Err(LoadSymbolsFromDirError::kind_mismatch(&dir_path))
             },
 
             _ => {}
@@ -195,7 +206,7 @@ pub fn load_symbols_from_dir<P: AsRef<Path>>(dir_path: P, max_symbols: usize) ->
             let last_some_index = symbols.iter().rposition(Option::is_some).unwrap();
             symbols[0..=last_some_index].iter().map(|symbol| symbol.clone().unwrap_or_else(|| Symbol::new(tile_kind))).collect()
         }
-        None => return Err(LoadSymbolsFromDirError::NoSymbolFound),
+        None => return Err(LoadSymbolsFromDirError::no_symbol_found(&dir_path)),
     };
 
     Ok(symbols)

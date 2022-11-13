@@ -1,4 +1,4 @@
 X Support both SD and HD tiles
 - Documentation
-- Error handling (error-stack)
+- Error handling (use this-error)
 - Rename errors in modules (remove useless prefixes)

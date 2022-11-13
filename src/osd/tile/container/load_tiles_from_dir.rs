@@ -1,26 +1,34 @@
 
-use std::{fmt::Display, path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
-use derive_more::{Error, From};
+use thiserror::Error;
 
 use crate::osd::tile::{LoadError as TileLoadError, Tile};
 
 
-#[derive(Debug, Error, From)]
+#[derive(Debug, Error)]
 pub enum LoadTilesFromDirError {
-    LoadError(TileLoadError),
-    NoTileFound,
-    KindMismatchError
+    #[error("error loading tile: {0}")]
+    TileLoadError(TileLoadError),
+    #[error("no tile found in directory: {0}")]
+    NoTileFound(PathBuf),
+    #[error("directory should contain a single kind of tile: {0}")]
+    KindMismatch(PathBuf)
 }
 
-impl Display for LoadTilesFromDirError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use LoadTilesFromDirError::*;
-        match self {
-            LoadError(load_error) => load_error.fmt(f),
-            KindMismatchError => f.write_str("directory contains different kinds of tiles"),
-            NoTileFound => f.write_str("no tile found"),
-        }
+impl LoadTilesFromDirError {
+    pub fn kind_mismatch<P: AsRef<Path>>(dir_path: P) -> Self {
+        Self::KindMismatch(dir_path.as_ref().to_path_buf())
+    }
+
+    pub fn no_tile_found<P: AsRef<Path>>(dir_path: P) -> Self {
+        Self::NoTileFound(dir_path.as_ref().to_path_buf())
+    }
+}
+
+impl From<TileLoadError> for LoadTilesFromDirError {
+    fn from(error: TileLoadError) -> Self {
+        Self::TileLoadError(error)
     }
 }
 
@@ -52,7 +60,7 @@ pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<
 
             // we have already loaded a tile before, check that the new tile kind is matching what had recorded
             (Some(tile), Some(tile_kind)) => if tile.kind() != *tile_kind {
-                return Err(LoadTilesFromDirError::KindMismatchError)
+                return Err(LoadTilesFromDirError::kind_mismatch(&path))
             },
 
             _ => {}
@@ -67,7 +75,7 @@ pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<
             let last_some_index = tiles.iter().rposition(Option::is_some).unwrap();
             tiles[0..=last_some_index].iter().map(|tile| tile.clone().unwrap_or_else(|| Tile::new(tile_kind))).collect()
         }
-        None => return Err(LoadTilesFromDirError::NoTileFound),
+        None => return Err(LoadTilesFromDirError::no_tile_found(&path)),
     };
 
     Ok(tiles)

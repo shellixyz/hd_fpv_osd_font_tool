@@ -1,9 +1,9 @@
 
-use std::fmt::Display;
 use std::ops::Index;
 use std::path::{Path, PathBuf};
 
-use derive_more::{Error, Deref, Display, From, IntoIterator};
+use derive_more::{Deref, Display, From, IntoIterator};
+use thiserror::Error;
 use getset::Getters;
 use image::{ImageBuffer, Rgba, GenericImage, GenericImageView};
 use strum::IntoEnumIterator;
@@ -18,13 +18,8 @@ use crate::image::{read_image_file, WriteImageFile, ReadError as ImageLoadError,
 
 
 #[derive(Debug, Error)]
-pub struct InvalidImageDimensionsError;
-
-impl Display for InvalidImageDimensionsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("image dimensions does not match valid dimensions for any of the recognized tile kinds")
-    }
-}
+#[error("image dimensions {0} does not match valid dimensions for any of the recognized tile kinds")]
+pub struct InvalidImageDimensionsError(ImageDimensions);
 
 #[derive(Debug, From, Error, Display)]
 pub enum LoadError {
@@ -77,11 +72,11 @@ impl Grid {
                     let grid_height = (image_dimensions.height - tile_kind.dimensions().height) / (tile_kind.dimensions().height + SEPARATOR_THICKNESS) + 1;
                     return Ok((tile_kind, grid_height as usize));
                 } else {
-                    return Err(InvalidImageDimensionsError)
+                    return Err(InvalidImageDimensionsError(image_dimensions))
                 }
             }
         }
-        Err(InvalidImageDimensionsError)
+        Err(InvalidImageDimensionsError(image_dimensions))
     }
 
     pub fn load_from_image<P: AsRef<Path>>(path: P) -> Result<Self, LoadError> {

@@ -6,19 +6,23 @@ use getset::Getters;
 
 #[derive(Debug)]
 pub enum Action {
+    Close,
     Create,
     Open,
     Read,
-    Write
+    Seek,
+    Write,
 }
 
 impl Display for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Action::*;
         let action_str = match self {
+            Close => "closing",
             Create => "creating",
             Open => "opening",
             Read => "reading",
+            Seek => "seeking",
             Write => "writing",
         };
         f.write_str(action_str)

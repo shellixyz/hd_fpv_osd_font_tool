@@ -1,30 +1,20 @@
 
-use std::fmt::Display;
+use thiserror::Error;
 
-use derive_more::Error;
 use crate::osd::tile::{Kind as TileKind, Tile};
-
 use super::{symbol::Symbol, IntoSymbolsTilesIter};
 
 
 #[derive(Debug, Error)]
 pub enum TileKindError {
+    #[error("cannot determine tile kind from empty container")]
     EmptyContainer,
+    #[error("container includes multiple tile kinds")]
     MultipleTileKinds,
+    #[error("loaded kind does not match requested: loaded {loaded}, requested {requested}")]
     LoadedDoesNotMatchRequested {
         requested: TileKind,
         loaded: TileKind,
-    }
-}
-
-impl Display for TileKindError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use TileKindError::*;
-        match self {
-            EmptyContainer => f.write_str("cannot determine tile kind from empty container"),
-            MultipleTileKinds => f.write_str("container includes multiple tile kinds"),
-            LoadedDoesNotMatchRequested { requested, loaded } => write!(f, "loaded kind does not match requested: loaded {loaded}, requested {requested}"),
-        }
     }
 }
 
