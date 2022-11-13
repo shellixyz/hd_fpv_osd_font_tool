@@ -144,11 +144,6 @@ fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &Convert
     }
 }
 
-fn convert_tile_grid_set(tile_grid_set: TileGridSet, to_arg: &ConvertSetArg, options: &ConvertOptions) {
-    convert_tile_set(tile_grid_set.into_tile_set(), to_arg, options)
-}
-
-
 pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> Result<(), ConvertSetError> {
     let from_arg = identify_convert_set_arg(from).map_err(ConvertSetError::FromArg)?;
     let to_arg = identify_convert_set_arg(to).map_err(ConvertSetError::ToArg)?;
@@ -172,12 +167,12 @@ pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> Res
 
         (TileSetGrids { sd_path, hd_path }, to_arg) => {
             let tile_grid_set = TileGridSet::load_from_images(sd_path, hd_path).unwrap();
-            convert_tile_grid_set(tile_grid_set, to_arg, &options)
+            convert_tile_set(tile_grid_set.into_tile_set(), to_arg, &options)
         },
 
         (TileSetGridsNorm { dir, ident }, to_arg) => {
             let tile_grid_set = TileGridSet::load_from_images_norm(dir, ident).unwrap();
-            convert_tile_grid_set(tile_grid_set, to_arg, &options)
+            convert_tile_set(tile_grid_set.into_tile_set(), to_arg, &options)
         },
 
         (TileSetDir(dir), to_arg) => {
