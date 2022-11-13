@@ -102,7 +102,7 @@ impl Display for ConvertError {
     }
 }
 
-pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> Result<(), ConvertError> {
+pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow::Result<()> {
     let from_arg = identify_convert_arg(from).map_err(ConvertError::FromArg)?;
     let to_arg = identify_convert_arg(to).map_err(ConvertError::ToArg)?;
     log::info!("converting {} -> {}", from, to);
@@ -110,7 +110,7 @@ pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> Result<
     use ConvertArg::*;
     match (&from_arg, &to_arg) {
         (BinFile(_), BinFile(_)) | (TileGrid(_), TileGrid(_)) | (TileDir(_), TileDir(_)) | (SymbolDir(_), SymbolDir(_)) =>
-            return Err(ConvertError::InvalidConversion { from_prefix: from_arg.prefix().to_owned(), to_prefix: to_arg.prefix().to_owned()}),
+            Err(ConvertError::InvalidConversion { from_prefix: from_arg.prefix().to_owned(), to_prefix: to_arg.prefix().to_owned()})?,
 
         (BinFile(from_path), to_arg) => {
             let bin_file_tiles = bin_file::load(from_path).unwrap();

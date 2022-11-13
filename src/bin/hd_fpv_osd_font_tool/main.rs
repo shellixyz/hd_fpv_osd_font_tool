@@ -6,15 +6,14 @@ use std::process::exit;
 
 use clap::{Parser, Subcommand};
 
-use derive_more::{Display, From, Error};
 use hd_fpv_osd_font_tool::prelude::*;
 use hd_fpv_osd_font_tool::log_level::LogLevel;
 
 mod convert;
 mod convert_set;
 
-use convert::{convert_command, ConvertError};
-use convert_set::{convert_set_command, ConvertSetError};
+use convert::convert_command;
+use convert_set::convert_set_command;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -126,20 +125,14 @@ pub struct ConvertOptions<'a> {
     symbol_specs_file: &'a PathBuf
 }
 
-#[derive(Debug, Error, Display, From)]
-enum CommandError {
-    ConvertError(ConvertError),
-    ConvertSetError(ConvertSetError),
-}
-
 fn main() {
     let cli = Cli::parse();
 
     pretty_env_logger::formatted_builder().parse_filters(cli.log_level.to_string().as_str()).init();
 
-    let command_result: Result<(), CommandError> = match &cli.command {
-        Commands::Convert { from, to, symbol_specs_file } => convert_command(from, to, ConvertOptions { symbol_specs_file }).map_err(CommandError::ConvertError),
-        Commands::ConvertSet { from, to, symbol_specs_file } => convert_set_command(from, to, ConvertOptions { symbol_specs_file }).map_err(CommandError::ConvertSetError),
+    let command_result = match &cli.command {
+        Commands::Convert { from, to, symbol_specs_file } => convert_command(from, to, ConvertOptions { symbol_specs_file }),
+        Commands::ConvertSet { from, to, symbol_specs_file } => convert_set_command(from, to, ConvertOptions { symbol_specs_file }),
     };
 
     if let Err(error) = command_result {
