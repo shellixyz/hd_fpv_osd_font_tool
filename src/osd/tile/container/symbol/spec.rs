@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Display;
 use std::ops::Range;
-use std::io::Error as IOError;
 use std::path::Path;
 use derive_more::{From, Deref};
 use getset::CopyGetters;
 use parse_int::parse;
 use regex::Regex;
 use lazy_static::lazy_static;
+
+use crate::file::{self, Error as FileError};
 
 
 #[derive(Debug, CopyGetters)]
@@ -41,7 +42,7 @@ pub struct Specs(Vec<Spec>);
 impl Specs {
 
     pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadSpecsFileError> {
-        let file = std::fs::File::open(path)?;
+        let file = file::open(path)?;
         let file_content: HashMap<String, String> = serde_yaml::from_reader(file)?;
         lazy_static! {
             static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();
@@ -74,7 +75,7 @@ impl From<Vec<Spec>> for Specs {
 
 #[derive(Debug, From)]
 pub enum LoadSpecsFileError {
-    IOError(IOError),
+    OpenError(FileError),
     FileStructureError(serde_yaml::Error),
     InvalidSymbolSpec(String),
 }
@@ -87,7 +88,7 @@ impl Display for LoadSpecsFileError {
         match self {
             FileStructureError(error) => error.fmt(f),
             InvalidSymbolSpec(spec) => write!(f, "invalid symbol spec: `{spec}`"),
-            IOError(error) => error.fmt(f),
+            OpenError(error) => write!(f, "failed to open symbol specs file: {}", error),
         }
     }
 }

@@ -3,6 +3,13 @@ use std::{cmp::Ordering, error::Error};
 use std::fmt::Display;
 
 use derive_more::Display;
+use hd_fpv_osd_font_tool::osd::tile::container::save_symbols_to_dir::SaveSymbolsToDirError;
+use hd_fpv_osd_font_tool::osd::tile::container::save_tiles_to_dir::SaveTilesToDirError;
+use hd_fpv_osd_font_tool::osd::tile::container::save_to_bin_file::SaveTilesToBinFileError;
+use hd_fpv_osd_font_tool::osd::tile::container::symbol::spec::LoadSpecsFileError;
+use hd_fpv_osd_font_tool::osd::bin_file::{LoadError as BinFileLoadError, LoadSetError as BinFileLoadSetError};
+use hd_fpv_osd_font_tool::osd::tile::container::tile_set::LoadTileSetTilesFromDirError;
+use hd_fpv_osd_font_tool::osd::tile::container::symbol::set::LoadFromDirError as SymbolSetLoadFromDirError;
 
 use crate::ConvertOptions;
 
@@ -113,7 +120,9 @@ pub enum ConvertSetError {
     InvalidConversion {
         from_prefix: String,
         to_prefix: String
-    }
+    },
+    LoadError(String),
+    SaveError(String),
 }
 
 impl Error for ConvertSetError {}
@@ -125,23 +134,87 @@ impl Display for ConvertSetError {
             FromArg(error) => write!(f, "invalid `from` argument: {}", error),
             ToArg(error) => write!(f, "invalid `to` argument: {}", error),
             InvalidConversion { from_prefix, to_prefix } => write!(f, "invalid conversion from {} to {}", from_prefix, to_prefix),
+            LoadError(error_string) => error_string.fmt(f),
+            SaveError(error_string) => error_string.fmt(f),
         }
     }
 }
 
-fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &ConvertOptions) {
+impl From<GridLoadError> for ConvertSetError {
+    fn from(error: GridLoadError) -> Self {
+        ConvertSetError::LoadError(error.to_string())
+    }
+}
+
+impl From<GridSaveImageError> for ConvertSetError {
+    fn from(error: GridSaveImageError) -> Self {
+        ConvertSetError::SaveError(error.to_string())
+    }
+}
+
+impl From<SaveTilesToBinFileError> for ConvertSetError {
+    fn from(error: SaveTilesToBinFileError) -> Self {
+        ConvertSetError::SaveError(error.to_string())
+    }
+}
+
+impl From<SaveTilesToDirError> for ConvertSetError {
+    fn from(error: SaveTilesToDirError) -> Self {
+        ConvertSetError::SaveError(error.to_string())
+    }
+}
+
+impl From<SaveSymbolsToDirError> for ConvertSetError {
+    fn from(error: SaveSymbolsToDirError) -> Self {
+        ConvertSetError::SaveError(error.to_string())
+    }
+}
+
+impl From<LoadSpecsFileError> for ConvertSetError {
+    fn from(error: LoadSpecsFileError) -> Self {
+        ConvertSetError::LoadError(error.to_string())
+    }
+}
+
+impl From<BinFileLoadError> for ConvertSetError {
+    fn from(error: BinFileLoadError) -> Self {
+        ConvertSetError::LoadError(error.to_string())
+    }
+}
+
+impl From<BinFileLoadSetError> for ConvertSetError {
+    fn from(error: BinFileLoadSetError) -> Self {
+        ConvertSetError::LoadError(error.to_string())
+    }
+}
+
+impl From<SymbolSetLoadFromDirError> for ConvertSetError {
+    fn from(error: SymbolSetLoadFromDirError) -> Self {
+        ConvertSetError::LoadError(error.to_string())
+    }
+}
+
+impl From<LoadTileSetTilesFromDirError> for ConvertSetError {
+    fn from(error: LoadTileSetTilesFromDirError) -> Self {
+        ConvertSetError::LoadError(error.to_string())
+    }
+}
+
+
+fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &ConvertOptions) -> Result<(), ConvertSetError> {
     use ConvertSetArg::*;
     match to_arg {
-        BinFileSet { sd_path, sd_2_path, hd_path, hd_2_path } => tile_set.save_to_bin_files(sd_path, sd_2_path, hd_path, hd_2_path).unwrap(),
-        BinFileSetNorm { dir, ident } => tile_set.save_to_bin_files_norm(dir, ident).unwrap(),
-        TileSetGrids { sd_path, hd_path } => tile_set.save_to_grids(sd_path, hd_path).unwrap(),
-        TileSetGridsNorm { dir, ident  } => tile_set.save_to_grids_norm(dir, ident).unwrap(),
-        TileSetDir(dir) => tile_set.save_tiles_to_dir(dir).unwrap(),
+        BinFileSet { sd_path, sd_2_path, hd_path, hd_2_path } => tile_set.save_to_bin_files(sd_path, sd_2_path, hd_path, hd_2_path)?,
+        BinFileSetNorm { dir, ident } => tile_set.save_to_bin_files_norm(dir, ident)?,
+        TileSetGrids { sd_path, hd_path } => tile_set.save_to_grids(sd_path, hd_path)?,
+        TileSetGridsNorm { dir, ident  } => tile_set.save_to_grids_norm(dir, ident)?,
+        TileSetDir(dir) => tile_set.save_tiles_to_dir(dir)?,
         SymbolSetDir(dir) => {
-            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file).unwrap();
-            tile_set.into_symbol_set(&sym_specs).unwrap().save_to_dir(dir).unwrap();
+            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
+            tile_set.into_symbol_set(&sym_specs).unwrap().save_to_dir(dir)?;
         },
     }
+    Ok(())
 }
 
 pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> Result<(), ConvertSetError> {
@@ -156,36 +229,34 @@ pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> Res
             return Err(ConvertSetError::InvalidConversion { from_prefix: from_arg.prefix().to_owned(), to_prefix: to_arg.prefix().to_owned()}),
 
         (BinFileSet { sd_path, sd_2_path, hd_path, hd_2_path }, to_arg) => {
-            let tile_set = bin_file::load_set(sd_path, sd_2_path, hd_path, hd_2_path).unwrap();
+            let tile_set = bin_file::load_set(sd_path, sd_2_path, hd_path, hd_2_path)?;
             convert_tile_set(tile_set, to_arg, &options)
         },
 
         (BinFileSetNorm { dir, ident }, to_arg) => {
-            let tile_set = bin_file::load_set_norm(dir, ident).unwrap();
+            let tile_set = bin_file::load_set_norm(dir, ident)?;
             convert_tile_set(tile_set, to_arg, &options)
         },
 
         (TileSetGrids { sd_path, hd_path }, to_arg) => {
-            let tile_grid_set = TileGridSet::load_from_images(sd_path, hd_path).unwrap();
+            let tile_grid_set = TileGridSet::load_from_images(sd_path, hd_path)?;
             convert_tile_set(tile_grid_set.into_tile_set(), to_arg, &options)
         },
 
         (TileSetGridsNorm { dir, ident }, to_arg) => {
-            let tile_grid_set = TileGridSet::load_from_images_norm(dir, ident).unwrap();
+            let tile_grid_set = TileGridSet::load_from_images_norm(dir, ident)?;
             convert_tile_set(tile_grid_set.into_tile_set(), to_arg, &options)
         },
 
         (TileSetDir(dir), to_arg) => {
-            let tile_set = TileSet::load_from_dir(dir, 512).unwrap();
+            let tile_set = TileSet::load_from_dir(dir, 512)?;
             convert_tile_set(tile_set, to_arg, &options)
         },
 
         (SymbolSetDir(dir), to_arg) => {
-            let symbol_set = SymbolSet::load_from_dir(dir, 512).unwrap();
+            let symbol_set = SymbolSet::load_from_dir(dir, 512)?;
             convert_tile_set(symbol_set.into(), to_arg, &options)
         },
 
     }
-
-    Ok(())
 }

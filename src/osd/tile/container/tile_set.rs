@@ -80,7 +80,6 @@ impl TileSet {
     }
 
     pub fn save_to_bin_files_norm<P: AsRef<Path>>(&self, dir: P, ident: &Option<&str>) -> Result<(), SaveTilesToBinFileError> {
-        std::fs::create_dir_all(&dir)?;
         self.sd_tiles.save_to_bin_files_norm(&dir, ident)?;
         self.hd_tiles.save_to_bin_files_norm(&dir, ident)
     }
@@ -91,7 +90,6 @@ impl TileSet {
     }
 
     pub fn save_to_grids_norm<P: AsRef<Path>>(&self, dir: P, ident: &Option<&str>) -> Result<(), SaveGridImageError> {
-        std::fs::create_dir_all(&dir)?;
         self.sd_tiles.save_to_grid_image_norm(&dir, ident)?;
         self.hd_tiles.save_to_grid_image_norm(&dir, ident)
     }

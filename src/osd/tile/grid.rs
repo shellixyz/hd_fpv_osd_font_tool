@@ -2,19 +2,19 @@
 use std::fmt::Display;
 use std::ops::Index;
 use std::path::{Path, PathBuf};
-use std::io::Error as IOError;
 
 use derive_more::{Error, Deref, Display, From, IntoIterator};
 use getset::Getters;
-use image::{ImageBuffer, Rgba, GenericImage, ImageError, GenericImageView};
-use image::io::Reader as ImageReader;
+use image::{ImageBuffer, Rgba, GenericImage, GenericImageView};
 use strum::IntoEnumIterator;
 
 use super::container::tile_set::TileSet;
 use super::{Tile, Kind as TileKind};
 use super::container::uniq_tile_kind::{UniqTileKind, TileKindError};
+use crate::create_path::{create_path, CreatePathError};
 use crate::dimensions;
 use crate::osd::tile;
+use crate::image::{read_image_file, WriteImageFile, ReadError as ImageLoadError, WriteError as ImageWriteError};
 
 
 #[derive(Debug, Error)]
@@ -22,22 +22,22 @@ pub struct InvalidImageDimensionsError;
 
 impl Display for InvalidImageDimensionsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("image dimensions does not match valid dimensions for any of the tile kinds")
+        f.write_str("image dimensions does not match valid dimensions for any of the recognized tile kinds")
     }
 }
 
 #[derive(Debug, From, Error, Display)]
 pub enum LoadError {
-    IOError(IOError),
-    ImageError(ImageError),
-    InvalidImageDimensions(InvalidImageDimensionsError)
+    ImageLoadError(ImageLoadError),
+    InvalidImageDimensions(InvalidImageDimensionsError),
+    TileKindError(TileKindError),
 }
 
 #[derive(Debug, From, Error, Display)]
 pub enum SaveImageError {
-    IOError(IOError),
+    CreatePathError(CreatePathError),
+    ImageWriteError(ImageWriteError),
     TileKindError(TileKindError),
-    ImageError(ImageError)
 }
 
 pub type ImageDimensions = dimensions::Dimensions<u32>;
@@ -85,7 +85,7 @@ impl Grid {
     }
 
     pub fn load_from_image<P: AsRef<Path>>(path: P) -> Result<Self, LoadError> {
-        let image = ImageReader::open(&path)?.decode()?;
+        let image = read_image_file(&path)?;
         let (img_dim_width, img_dim_height) = image.dimensions();
         let (tile_kind, grid_height) = Self::image_tile_kind_and_grid_height(ImageDimensions { width: img_dim_width, height: img_dim_height })?;
         log::info!("detected {tile_kind} kind of tiles in a {WIDTH}x{grid_height} grid in {}", path.as_ref().to_string_lossy());
@@ -147,12 +147,13 @@ impl Grid {
     }
 
     pub fn save_image<P: AsRef<Path>>(&self, path: P) -> Result<(), SaveImageError> {
-        self.generate_image()?.save(path)?;
+        self.generate_image()?.write_image_file(path)?;
         Ok(())
     }
 
     pub fn save_image_norm<P: AsRef<Path>>(&self, dir: P, ident: &Option<&str>) -> Result<(), SaveImageError> {
-        self.save_image(self.normalized_image_file_path(dir, ident)?)
+        create_path(&dir)?;
+        self.save_image(self.normalized_image_file_path(&dir, ident)?)
     }
 
 }
@@ -193,12 +194,6 @@ pub fn normalized_image_file_path<P: AsRef<Path>>(dir: P, tile_kind: TileKind, i
     [dir.as_ref().to_path_buf(), normalized_image_file_name(tile_kind, ident)].into_iter().collect()
 }
 
-#[derive(Debug, Error, Display, From)]
-pub enum LoadSetFromImagesError {
-    LoadError(LoadError),
-    TileKindError(TileKindError),
-}
-
 #[derive(Getters)]
 #[getset(get = "pub")]
 pub struct Set {
@@ -216,7 +211,7 @@ impl Set {
         Ok(())
     }
 
-    pub fn load_from_images<P: AsRef<Path>>(sd_grid_image_path: P, hd_grid_image_path: P) -> Result<Self, LoadSetFromImagesError> {
+    pub fn load_from_images<P: AsRef<Path>>(sd_grid_image_path: P, hd_grid_image_path: P) -> Result<Self, LoadError> {
         let sd_grid = Grid::load_from_image(sd_grid_image_path)?;
         Self::check_grid_kind(&sd_grid, TileKind::SD)?;
         let hd_grid = Grid::load_from_image(hd_grid_image_path)?;
@@ -224,7 +219,7 @@ impl Set {
         Ok(Self { sd_grid, hd_grid })
     }
 
-    pub fn load_from_images_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<Self, LoadSetFromImagesError> {
+    pub fn load_from_images_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<Self, LoadError> {
         let sd_grid = Grid::load_from_image_norm(&dir, TileKind::SD, ident)?;
         Self::check_grid_kind(&sd_grid, TileKind::SD)?;
         let hd_grid = Grid::load_from_image_norm(&dir, TileKind::HD, ident)?;

@@ -5,17 +5,16 @@ pub mod container;
 use std::error::Error;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
-use std::io::Error as IOError;
 
 use derive_more::{Deref,DerefMut, From};
 use getset::{Getters, CopyGetters};
 use strum::{EnumIter,IntoEnumIterator, Display};
 use image::{ImageBuffer, Rgba, GenericImageView, GenericImage};
-use image::io::Reader as ImageReader;
-use image::error::ImageError;
 
 use crate::dimensions;
 use super::bin_file::BinFileReader;
+use crate::file::Error as FileError;
+use crate::image::{read_image_file, ReadError as ImageReadError};
 
 
 pub type Dimensions = dimensions::Dimensions<u32>;
@@ -119,8 +118,8 @@ impl TryFrom<Dimensions> for Kind {
 
 #[derive(Debug, From)]
 pub enum LoadError {
-    IOError(IOError),
-    ImageError(ImageError),
+    FileError(FileError),
+    ImageReadError(ImageReadError),
     InvalidDimensionsError(Dimensions),
     InvalidSizeError(usize)
 }
@@ -129,8 +128,8 @@ impl Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use LoadError::*;
         match self {
-            IOError(io_error) => io_error.fmt(f),
-            ImageError(image_error) => image_error.fmt(f),
+            FileError(error) => error.fmt(f),
+            ImageReadError(error) => error.fmt(f),
             InvalidDimensionsError(dimensions) => write!(f, "invalid tile image size {}x{}", dimensions.width(), dimensions.height()),
             InvalidSizeError(error) => error.fmt(f),
         }
@@ -174,7 +173,7 @@ impl Tile {
     }
 
     pub fn load_image_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadError> {
-        let image = ImageReader::open(path)?.decode()?;
+        let image = read_image_file(path)?;
         let kind = Kind::try_from(Dimensions::from(image.dimensions()))?;
         Ok(Self { kind, image: image.into_rgba8() })
     }

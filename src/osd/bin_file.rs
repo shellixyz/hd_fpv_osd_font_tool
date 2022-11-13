@@ -14,6 +14,7 @@ use super::tile::container::tile_set::TileSet;
 use super::tile::container::uniq_tile_kind::{TileKindError, UniqTileKind};
 use super::tile::{self, Tile, Kind as TileKind};
 use super::tile::grid::Grid as TileGrid;
+use crate::file::{self, Error as FileError, Action as FileAction};
 
 pub const TILE_COUNT: usize = 256;
 
@@ -36,7 +37,7 @@ impl tile::Kind {
 
 #[derive(Debug, From, Error)]
 pub enum OpenError {
-    IOError(IOError),
+    FileError(FileError),
     #[from(ignore)]
     InvalidSizeError
 }
@@ -45,8 +46,8 @@ impl Display for OpenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use OpenError::*;
         match self {
-            IOError(io_error) => io_error.fmt(f),
             InvalidSizeError => f.write_str("File size does not match a valid bin file size"),
+            FileError(error) => error.fmt(f),
         }
     }
 }
@@ -76,13 +77,13 @@ impl Display for SeekError {
 #[derive(Debug, From, Error, Display)]
 pub enum SeekReadError {
     SeekError(SeekError),
-    IOError(IOError)
+    FileError(FileError)
 }
 
 #[derive(Debug, From, Error)]
 pub enum LoadError {
-    IOError(IOError),
     OpenError(OpenError),
+    ReadError(FileError),
     TileKindError(TileKindError),
     WrongSizeError,
 }
@@ -91,8 +92,8 @@ impl Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use LoadError::*;
         match self {
-            IOError(error) => error.fmt(f),
             OpenError(error) => error.fmt(f),
+            ReadError(error) => error.fmt(f),
             WrongSizeError => f.write_str("File size does not match a valid bin file size"),
             TileKindError(error) => error.fmt(f),
         }
@@ -107,6 +108,7 @@ pub enum SeekFrom {
 
 #[derive(Getters)]
 pub struct BinFileReader {
+    file_path: PathBuf,
     file: File,
 
     #[getset(get = "pub")]
@@ -119,26 +121,26 @@ pub struct BinFileReader {
 impl BinFileReader {
 
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, OpenError> {
-        let file = File::open(&path).map_err(OpenError::IOError)?;
+        let file = file::open(&path)?;
         let tile_kind = tile::Kind::for_bin_file_size_bytes(file.metadata().unwrap().len() as usize)?;
         log::info!("detected {} kind of tiles in {}", tile_kind, path.as_ref().to_string_lossy());
-        Ok(Self { file, tile_kind, pos: 0 })
+        Ok(Self { file, file_path: path.as_ref().to_path_buf(), tile_kind, pos: 0 })
     }
 
-    pub(crate) fn read_tile_bytes(&mut self) -> Result<tile::Bytes, IOError> {
+    pub(crate) fn read_tile_bytes(&mut self) -> Result<tile::Bytes, FileError> {
         let mut tile_bytes = vec![0; self.tile_kind.raw_rgba_size_bytes()];
-        self.file.read_exact(&mut tile_bytes)?;
+        self.file.read_exact(&mut tile_bytes).map_err(|error| FileError::new(FileAction::Read, &self.file_path, error))?;
         self.pos += 1;
         Ok(tile_bytes)
     }
 
-    pub fn read_tile(&mut self) -> Result<Tile, IOError> {
+    pub fn read_tile(&mut self) -> Result<Tile, FileError> {
         Ok(Tile::try_from(self.read_tile_bytes()?).unwrap())
     }
 
     pub fn seek_read_tile(&mut self, pos: SeekFrom) -> Result<Tile, SeekReadError> {
         self.seek(pos).map_err(SeekReadError::SeekError)?;
-        self.read_tile().map_err(SeekReadError::IOError)
+        self.read_tile().map_err(SeekReadError::FileError)
     }
 
     // seek to tile position
@@ -171,7 +173,7 @@ impl BinFileReader {
         Ok(self.read_tiles()?.into_tile_grid())
     }
 
-    pub fn read_tiles(self) -> Result<Vec<Tile>, IOError> {
+    pub fn read_tiles(self) -> Result<Vec<Tile>, FileError> {
         let mut tiles = vec![];
         for tile in self {
             tiles.push(tile?);
@@ -184,7 +186,7 @@ impl BinFileReader {
 pub struct BinFileReaderIterator(BinFileReader);
 
 impl Iterator for BinFileReaderIterator {
-    type Item = Result<Tile, IOError>;
+    type Item = Result<Tile, FileError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if *self.0.pos() >= TILE_COUNT {
@@ -195,7 +197,7 @@ impl Iterator for BinFileReaderIterator {
 }
 
 impl IntoIterator for BinFileReader {
-    type Item = Result<Tile, IOError>;
+    type Item = Result<Tile, FileError>;
 
     type IntoIter = BinFileReaderIterator;
 
@@ -373,9 +375,9 @@ pub struct BinFileWriter {
 
 impl BinFileWriter {
 
-    pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, IOError> {
+    pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, FileError> {
         Ok(Self {
-            file: File::create(path)?,
+            file: file::create(path)?,
             tile_count: 0,
             tile_kind: None
         })

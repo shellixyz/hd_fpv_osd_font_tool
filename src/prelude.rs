@@ -24,6 +24,8 @@ pub use crate::osd::{
         grid::{
             Grid as TileGrid,
             Set as TileGridSet,
+            LoadError as GridLoadError,
+            SaveImageError as GridSaveImageError,
         },
     }
 };
