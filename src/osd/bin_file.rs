@@ -9,13 +9,27 @@ use thiserror::Error;
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
 
-use super::tile::container::into_tile_grid::IntoTileGrid;
-use super::tile::container::tile_set::TileSet;
-use super::tile::container::uniq_tile_kind::UniqTileKind;
-use super::tile::{self, Tile, Kind as TileKind};
-use super::tile::grid::Grid as TileGrid;
-use crate::file::{self, Error as FileError, Action as FileAction};
-use crate::osd::tile::InvalidSizeError;
+use super::tile::{
+    self,
+    Tile,
+    Kind as TileKind,
+    grid::Grid as TileGrid,
+    container::{
+        into_tile_grid::IntoTileGrid,
+        tile_set::TileSet,
+        uniq_tile_kind::UniqTileKind,
+    },
+};
+
+use crate::{
+    file::{
+        self,
+        Error as FileError,
+        Action as FileAction,
+    },
+    osd::tile::InvalidSizeError,
+};
+
 
 pub const TILE_COUNT: usize = 256;
 

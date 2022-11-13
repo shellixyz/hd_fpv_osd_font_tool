@@ -7,6 +7,7 @@ use super::symbol::Symbol;
 use crate::create_path::{create_path, CreatePathError};
 use crate::image::{WriteImageFile, WriteError as ImageWriteError};
 
+
 #[derive(Debug, Error, Display, From)]
 pub enum SaveSymbolsToDirError {
     CreatePathError(CreatePathError),

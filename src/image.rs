@@ -10,6 +10,7 @@ use image::io::Reader as ImageReader;
 
 use crate::file::{Error as FileError, Action as FileAction};
 
+
 #[derive(Debug, Error, From)]
 pub enum ReadError {
     OpenError(FileError),

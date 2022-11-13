@@ -3,7 +3,10 @@ use derive_more::{Error, Display, From};
 use image::ImageError;
 use std::path::{Path, PathBuf};
 
-use crate::{osd::tile::Tile, create_path::{create_path, CreatePathError}};
+use crate::{
+    osd::tile::Tile,
+    create_path::{create_path, CreatePathError}
+};
 
 
 #[derive(Debug, Error, Display, From)]

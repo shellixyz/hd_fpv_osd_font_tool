@@ -10,10 +10,16 @@ use strum::{EnumIter,IntoEnumIterator, Display};
 use image::{ImageBuffer, Rgba, GenericImageView, GenericImage};
 use thiserror::Error;
 
-use crate::dimensions;
+use crate::{
+    dimensions,
+    file::Error as FileError,
+    image::{
+        read_image_file,
+        ReadError as ImageReadError,
+    }
+};
+
 use super::bin_file::BinFileReader;
-use crate::file::Error as FileError;
-use crate::image::{read_image_file, ReadError as ImageReadError};
 
 
 pub type Dimensions = dimensions::Dimensions<u32>;

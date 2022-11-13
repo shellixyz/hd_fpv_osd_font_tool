@@ -8,13 +8,26 @@ use getset::Getters;
 use image::{ImageBuffer, Rgba, GenericImage, GenericImageView};
 use strum::IntoEnumIterator;
 
-use super::container::tile_set::TileSet;
-use super::{Tile, Kind as TileKind};
-use super::container::uniq_tile_kind::{UniqTileKind, TileKindError};
-use crate::create_path::{create_path, CreatePathError};
-use crate::dimensions;
-use crate::osd::tile;
-use crate::image::{read_image_file, WriteImageFile, ReadError as ImageLoadError, WriteError as ImageWriteError};
+use super::{
+    Tile,
+    Kind as TileKind,
+    container::{
+        tile_set::TileSet,
+        uniq_tile_kind::{UniqTileKind, TileKindError},
+    },
+};
+
+use crate::{
+    create_path::{create_path, CreatePathError},
+    dimensions,
+    osd::tile,
+    image::{
+        read_image_file,
+        WriteImageFile,
+        ReadError as ImageLoadError,
+        WriteError as ImageWriteError,
+    },
+};
 
 
 #[derive(Debug, Error)]
