@@ -155,3 +155,51 @@ pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> any
 
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use std::path::Path;
+
+    use hd_fpv_osd_font_tool::osd::tile::container::tile_set::TileSet;
+    use itertools::Itertools;
+    use temp_dir::TempDir;
+
+    use crate::convert_set::convert_set_command;
+
+    use super::{identify_convert_set_arg, convert_tile_set};
+
+    #[test]
+    fn convert_set_all() {
+        let formats = [
+            // "djibinset",
+            "djibinsetnorm",
+            // "tilesetgrids",
+            "tilesetgridsnorm",
+            "tilesetdir",
+            "symsetdir"
+        ];
+
+        let from_djibinsetnorm = TileSet::load_bin_files_norm("test_files/djibinsetnorm", &None).unwrap();
+        let temp_dir = TempDir::new().unwrap();
+
+        for format in formats {
+            let to_arg_str = [format, temp_dir.child(format).to_str().unwrap()].join(":");
+            let to_arg = identify_convert_set_arg(&to_arg_str).unwrap();
+            let options = crate::ConvertOptions { symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf() };
+            convert_tile_set(from_djibinsetnorm.clone(), &to_arg, &options).unwrap();
+        }
+
+        for testing_formats in formats.iter().permutations(2) {
+            let (from_format, to_format) = (testing_formats[0], testing_formats[1]);
+            println!("testing {from_format} -> {to_format}");
+            let from_arg = [from_format, temp_dir.child(from_format).to_str().unwrap()].join(":");
+            let to_arg = [to_format, temp_dir.child(to_format).to_str().unwrap()].join(":");
+            let options = crate::ConvertOptions { symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf() };
+            convert_set_command(&from_arg, &to_arg, options).unwrap();
+        }
+
+    }
+
+
+}
