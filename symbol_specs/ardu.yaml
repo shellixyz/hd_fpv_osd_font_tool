@@ -1,0 +1,4 @@
+---
+GPS: '0x1E:2'
+mAh/km: '0x9D:2'
+Wh/km: '0xAC:2'
