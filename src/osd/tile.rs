@@ -30,7 +30,7 @@ pub const HD_DIMENSIONS: Dimensions = Dimensions::new(24, 36);
 #[derive(Debug, Error, Getters)]
 #[getset(get = "pub")]
 #[error("dimensions do not match any known tile kind: {dimensions}")]
-pub struct InvalidDimensionsError { dimensions: Dimensions }
+pub struct InvalidDimensionsError { pub(crate) dimensions: Dimensions }
 
 #[derive(Debug, Error)]
 #[error("number of RGBA bytes does not match any tile kind: {0}B")]

@@ -10,6 +10,7 @@ pub mod save_symbols_to_dir;
 pub mod symbol_tiles_iter;
 pub mod load_symbols_from_dir;
 pub mod save_to_grid;
+pub mod save_to_avatar_file;
 
 use tap::Tap;
 

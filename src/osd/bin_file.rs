@@ -33,7 +33,7 @@ use crate::{
 
 pub const TILE_COUNT: usize = 256;
 
-impl tile::Kind {
+impl TileKind {
 
     pub fn bin_file_size_bytes(&self) -> usize {
         self.raw_rgba_size_bytes() * TILE_COUNT

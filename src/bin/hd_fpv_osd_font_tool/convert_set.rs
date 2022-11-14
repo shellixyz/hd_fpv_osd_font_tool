@@ -1,8 +1,8 @@
 
-use std::{cmp::Ordering, error::Error};
-use std::fmt::Display;
+use std::cmp::Ordering;
 
 use derive_more::Display;
+use thiserror::Error;
 
 use crate::ConvertOptions;
 
@@ -32,21 +32,6 @@ enum ConvertSetArg<'a> {
     SymbolSetDir(&'a str),
 }
 
-impl<'a> ConvertSetArg<'a> {
-
-    fn prefix(&self) -> &'static str {
-        use ConvertSetArg::*;
-        match self {
-            BinFileSet {..} => "binset",
-            BinFileSetNorm {..} => "binsetnorm",
-            TileSetGrids {..} => "tilesetgrids",
-            TileSetGridsNorm {..} => "tilesetgridsnorm",
-            TileSetDir(_) => "tilesetdir",
-            SymbolSetDir(_) => "symsetdir",
-        }
-    }
-}
-
 #[derive(Debug, Display)]
 pub enum InvalidConvertSetArgError {
     InvalidConvertArgError(InvalidConvertArgError),
@@ -67,7 +52,7 @@ fn argument_norm_args(arg: &str) -> Result<(&str, Option<&str>), InvalidConvertS
 }
 
 fn identify_convert_set_arg(input: &str) -> Result<ConvertSetArg, InvalidConvertSetArgError> {
-    if let Some(file_paths) = input.strip_prefix("binset:") {
+    if let Some(file_paths) = input.strip_prefix("djibinset:") {
         let files: Vec<&str> = file_paths.split(':').collect();
         match files.len().cmp(&4) {
             Ordering::Less => return Err(InvalidConvertSetArgError::BinSetInvalidArguments("too few arguments")),
@@ -76,7 +61,7 @@ fn identify_convert_set_arg(input: &str) -> Result<ConvertSetArg, InvalidConvert
         }
         Ok(ConvertSetArg::BinFileSet { sd_path: files[0], sd_2_path: files[1], hd_path: files[2], hd_2_path: files[3] })
 
-    } else if let Some(path) = input.strip_prefix("binsetnorm:") {
+    } else if let Some(path) = input.strip_prefix("djibinsetnorm:") {
         let (dir, ident) = argument_norm_args(path)?;
         Ok(ConvertSetArg::BinFileSetNorm { dir, ident })
 
@@ -106,27 +91,12 @@ fn identify_convert_set_arg(input: &str) -> Result<ConvertSetArg, InvalidConvert
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConvertSetError {
+    #[error("invalid `from` argument: {0}")]
     FromArg(InvalidConvertSetArgError),
+    #[error("invalid `to` argument: {0}")]
     ToArg(InvalidConvertSetArgError),
-    InvalidConversion {
-        from_prefix: String,
-        to_prefix: String
-    },
-}
-
-impl Error for ConvertSetError {}
-
-impl Display for ConvertSetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use ConvertSetError::*;
-        match self {
-            FromArg(error) => write!(f, "invalid `from` argument: {}", error),
-            ToArg(error) => write!(f, "invalid `to` argument: {}", error),
-            InvalidConversion { from_prefix, to_prefix } => write!(f, "invalid conversion from {} to {}", from_prefix, to_prefix),
-        }
-    }
 }
 
 fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &ConvertOptions) -> anyhow::Result<()> {
@@ -152,9 +122,6 @@ pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> any
 
     use ConvertSetArg::*;
     match (&from_arg, &to_arg) {
-        (BinFileSet{..}, BinFileSet{..}) | (BinFileSetNorm {..}, BinFileSetNorm {..}) | (TileSetGrids{..}, TileSetGrids{..}) |
-        (TileSetGridsNorm {..}, TileSetGridsNorm {..}) | (TileSetDir(_), TileSetDir(_)) | (SymbolSetDir(_), SymbolSetDir(_)) =>
-            Err(ConvertSetError::InvalidConversion { from_prefix: from_arg.prefix().to_owned(), to_prefix: to_arg.prefix().to_owned()})?,
 
         (BinFileSet { sd_path, sd_2_path, hd_path, hd_2_path }, to_arg) => {
             let tile_set = bin_file::load_set(sd_path, sd_2_path, hd_path, hd_2_path)?;

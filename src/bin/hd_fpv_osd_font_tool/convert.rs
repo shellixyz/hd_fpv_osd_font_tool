@@ -2,6 +2,7 @@
 use std::{error::Error, fmt::Display, path::Path};
 
 use hd_fpv_osd_font_tool::prelude::*;
+use thiserror::Error;
 
 use crate::ConvertOptions;
 
@@ -34,22 +35,10 @@ impl Display for InvalidConvertArgError {
 
 enum ConvertArg<'a> {
     BinFile(&'a str),
+    AvatarFile(&'a str),
     TileGrid(&'a str),
     TileDir(&'a str),
     SymbolDir(&'a str),
-}
-
-impl<'a> ConvertArg<'a> {
-
-    fn prefix(&self) -> &'static str {
-        use ConvertArg::*;
-        match self {
-            BinFile(_) => "bin",
-            TileGrid(_) => "tilegrid",
-            TileDir(_) => "tiledir",
-            SymbolDir(_) => "symdir",
-        }
-    }
 }
 
 fn check_arg_image_file_extension(path: &str) -> Result<(), InvalidConvertArgError> {
@@ -64,7 +53,7 @@ fn check_arg_image_file_extension(path: &str) -> Result<(), InvalidConvertArgErr
 }
 
 fn identify_convert_arg(input: &str) -> Result<ConvertArg, InvalidConvertArgError> {
-    if let Some(path) = input.strip_prefix("bin:") {
+    if let Some(path) = input.strip_prefix("djibin:") {
         Ok(ConvertArg::BinFile(path))
     } else if let Some(path) = input.strip_prefix("tilegrid:") {
         Ok(ConvertArg::TileGrid(path))
@@ -72,6 +61,8 @@ fn identify_convert_arg(input: &str) -> Result<ConvertArg, InvalidConvertArgErro
         Ok(ConvertArg::TileDir(path))
     } else if let Some(path) = input.strip_prefix("symdir:") {
         Ok(ConvertArg::SymbolDir(path))
+    } else if let Some(path) = input.strip_prefix("avatar:") {
+        Ok(ConvertArg::AvatarFile(path))
     } else if let Some((prefix, _)) = input.split_once(':') {
         Err(InvalidConvertArgError::InvalidPrefix(prefix.to_owned()))
     } else {
@@ -79,27 +70,12 @@ fn identify_convert_arg(input: &str) -> Result<ConvertArg, InvalidConvertArgErro
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConvertError {
+    #[error("invalid `from` argument: {0}")]
     FromArg(InvalidConvertArgError),
+    #[error("invalid `to` argument: {0}")]
     ToArg(InvalidConvertArgError),
-    InvalidConversion {
-        from_prefix: String,
-        to_prefix: String
-    }
-}
-
-impl Error for ConvertError {}
-
-impl Display for ConvertError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use ConvertError::*;
-        match self {
-            FromArg(error) => write!(f, "invalid `from` argument: {}", error),
-            ToArg(error) => write!(f, "invalid `to` argument: {}", error),
-            InvalidConversion { from_prefix, to_prefix } => write!(f, "invalid conversion from {} to {}", from_prefix, to_prefix),
-        }
-    }
 }
 
 fn convert_tiles(tiles: Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
@@ -115,6 +91,7 @@ fn convert_tiles(tiles: Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions
             tiles.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
         },
         BinFile(to_path) => tiles.save_to_bin_file(to_path)?,
+        AvatarFile(to_path) => tiles.save_to_avatar_file(to_path)?,
     }
     Ok(())
 }
@@ -128,7 +105,8 @@ fn convert_tile_grid(tile_grid: TileGrid, to_arg: &ConvertArg, options: &Convert
             let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
             tile_grid.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
         },
-        TileGrid(to_path) => tile_grid.save_image(to_path)?
+        TileGrid(to_path) => tile_grid.save_image(to_path)?,
+        AvatarFile(to_path) => tile_grid.save_tiles_to_avatar_file(to_path)?,
     }
     Ok(())
 }
@@ -140,8 +118,6 @@ pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow:
 
     use ConvertArg::*;
     match (&from_arg, &to_arg) {
-        (BinFile(_), BinFile(_)) | (TileGrid(_), TileGrid(_)) | (TileDir(_), TileDir(_)) | (SymbolDir(_), SymbolDir(_)) =>
-            Err(ConvertError::InvalidConversion { from_prefix: from_arg.prefix().to_owned(), to_prefix: to_arg.prefix().to_owned()})?,
 
         (BinFile(from_path), to_arg) => {
             let tiles = bin_file::load(from_path)?;
@@ -161,6 +137,11 @@ pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow:
 
         (SymbolDir(from_path), to_arg) => {
             let tiles = load_symbols_from_dir(from_path, 512)?.into_tiles_vec();
+            convert_tiles(tiles, to_arg, &options)?;
+        },
+
+        (AvatarFile(from_path), to_arg) => {
+            let tiles = load_avatar_file(from_path)?;
             convert_tiles(tiles, to_arg, &options)?;
         }
 

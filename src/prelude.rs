@@ -1,6 +1,7 @@
 
 pub use crate::osd::{
     bin_file,
+    avatar_file::load as load_avatar_file,
     tile::{
         Tile,
         container::{
@@ -12,6 +13,10 @@ pub use crate::osd::{
             save_to_bin_file::{
                 SaveTilesToBinFile,
                 SaveToBinFile,
+            },
+            save_to_avatar_file::{
+                SaveToAvatarFile,
+                SaveTilesToAvatarFile,
             },
             save_to_grid::SaveToGridImage,
             symbol::{

@@ -33,7 +33,8 @@ enum Commands {
     /// Converts between tile collection formats
     ///
     /// Valid collection specifications are:{n}
-    ///     * bin:path          raw RGBA file{n}
+    ///     * djibin:path       raw RGBA file{n}
+    ///     * avatar:path       Avatar tile collection image file
     ///     * tilegrid:path     grid of tiles image{n}
     ///     * tiledir:path      directory with each tile in a separate file{n}
     ///     * symdir:path       directory with each symbol in a separate file{n}
@@ -76,8 +77,8 @@ enum Commands {
     /// A collection set contains both SD and HD tiles/symbols
     ///
     /// Valid collection specifications are:{n}
-    ///     * binset:sd_path:sd_2_path:hd_path:hd_2_path{n}
-    ///     * binsetnorm:path:ident         set of bin files with normalized names{n}
+    ///     * djibinset:sd_path:sd_2_path:hd_path:hd_2_path{n}
+    ///     * djibinsetnorm:path:ident      set of bin files with normalized names{n}
     ///     * tilesetgrids:sd_path:hd_path  grids of tiles image forming a SD/HD set{n}
     ///     * tilesetgridsnorm:path:ident   grid of tiles image set with normalized names{n}
     ///     * tilesetdir:path               directory with SD and HD tiles in the corresponding directory{n}
