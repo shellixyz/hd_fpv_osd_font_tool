@@ -162,21 +162,32 @@ mod tests {
 
     use super::convert_command;
 
-    fn convert<P: AsRef<Path>>(start_file_root: P, start_arg: &str, end_arg: &str) {
+    // convert file through all the supported formats back to original file format and check whether the start and end files are identical
+    fn convert<P: AsRef<Path>>(start_file_root: P, format: &str, start_file: P) {
+
+        let start_end_ext = match format {
+            "djibin" => "bin",
+            "avatar" => "png",
+            _ => panic!("unsupported format: {}", format)
+        };
+
+        let start_file = start_file.as_ref().to_path_buf().with_extension(start_end_ext);
+        let end_file = Path::new("end").to_path_buf().with_extension(start_end_ext);
+
+        let start_arg = format!("{format}:{}", start_file.to_str().unwrap());
+        let end_arg = format!("{format}:{}", end_file.to_str().unwrap());
 
         let convert_loop = [
-            start_arg,
+            &start_arg,
             "tilegrid:grid.png",
             "tiledir:tiledir",
             "symdir:symdir",
-            end_arg
+            &end_arg
         ];
 
-        let start_file_name = start_arg.split_once(':').unwrap().1;
-        let end_file_name = end_arg.split_once(':').unwrap().1;
-        let start_file_path: PathBuf = [start_file_root.as_ref(), Path::new(start_file_name)].iter().collect();
+        let start_file_path: PathBuf = [start_file_root.as_ref(), start_file.as_ref()].iter().collect();
         let temp_dir = TempDir::new().unwrap();
-        fs::copy(start_file_path, temp_dir.child(start_file_name)).unwrap();
+        fs::copy(start_file_path, temp_dir.child(start_file.to_str().unwrap())).unwrap();
         fs::copy("symbol_specs/ardu.yaml", temp_dir.child("ardu_symbol_specs.yaml")).unwrap();
         env::set_current_dir(temp_dir.path()).unwrap();
 
@@ -186,7 +197,7 @@ mod tests {
             convert_command(from_arg, to_arg, options).unwrap();
         }
 
-        let [input_hash, output_hash] = [start_file_name, end_file_name].map(|file_name| {
+        let [input_hash, output_hash] = [start_file, end_file].map(|file_name| {
             let mut hasher = Sha256::new();
             let mut file = fs::File::open(file_name).unwrap();
             io::copy(&mut file, &mut hasher).unwrap();
@@ -199,22 +210,22 @@ mod tests {
 
     #[test]
     fn convert_dji_sd() {
-        convert("test_files/djibinsetnorm", "djibin:font.bin", "djibin:end.bin");
+        convert("test_files/djibinsetnorm", "djibin", "font");
     }
 
     #[test]
     fn convert_dji_hd() {
-        convert("test_files/djibinsetnorm", "djibin:font_hd.bin", "djibin:end.bin");
+        convert("test_files/djibinsetnorm", "djibin", "font_hd");
     }
 
     #[test]
     fn convert_avatar_sd() {
-        convert("test_files/avatar", "avatar:user_ardu_36.png", "avatar:end.png");
+        convert("test_files/avatar", "avatar", "user_ardu_36");
     }
 
     #[test]
     fn convert_avatar_hd() {
-        convert("test_files/avatar", "avatar:user_ardu_24.png", "avatar:end.png");
+        convert("test_files/avatar", "avatar", "user_ardu_24");
     }
 
 }
