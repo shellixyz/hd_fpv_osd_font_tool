@@ -32,7 +32,7 @@ pub enum LoadFromTileGridsError {
     TileKindError(TileKindError),
 }
 
-#[derive(Getters)]
+#[derive(Clone, Getters)]
 #[getset(get = "pub")]
 pub struct TileSet {
     pub(crate) sd_tiles: Vec<Tile>,
