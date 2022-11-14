@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 use crate::osd::tile::{LoadError as TileLoadError, Tile};
+use crate::image::ReadError as ImageReadError;
 
 
 #[derive(Debug, Error)]
@@ -41,8 +42,8 @@ pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<
         let tile = match Tile::load_image_file(tile_path) {
             Ok(loaded_tile) => Some(loaded_tile),
             Err(error) => match &error {
-                TileLoadError::FileError(file_error) =>
-                    match file_error.error().kind() {
+                TileLoadError::ImageReadError(ImageReadError::OpenError(open_error)) =>
+                    match open_error.error().kind() {
                         std::io::ErrorKind::NotFound => None,
                         _ => return Err(error.into()),
                     },
