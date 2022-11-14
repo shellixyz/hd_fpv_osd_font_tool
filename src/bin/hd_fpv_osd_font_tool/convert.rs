@@ -149,3 +149,72 @@ pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow:
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+
+    use std::path::{PathBuf, Path};
+    use std::env;
+    use std::{io, fs};
+
+    use temp_dir::TempDir;
+    use sha2::{Sha256, Digest};
+
+    use super::convert_command;
+
+    fn convert<P: AsRef<Path>>(start_file_root: P, start_arg: &str, end_arg: &str) {
+
+        let convert_loop = [
+            start_arg,
+            "tilegrid:grid.png",
+            "tiledir:tiledir",
+            "symdir:symdir",
+            end_arg
+        ];
+
+        let start_file_name = start_arg.split_once(':').unwrap().1;
+        let end_file_name = end_arg.split_once(':').unwrap().1;
+        let start_file_path: PathBuf = [start_file_root.as_ref(), Path::new(start_file_name)].iter().collect();
+        let temp_dir = TempDir::new().unwrap();
+        fs::copy(start_file_path, temp_dir.child(start_file_name)).unwrap();
+        fs::copy("symbol_specs/ardu.yaml", temp_dir.child("ardu_symbol_specs.yaml")).unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
+
+        for args in convert_loop.windows(2) {
+            let (from_arg, to_arg) = (args[0], args[1]);
+            let options = crate::ConvertOptions { symbol_specs_file: &Path::new("ardu_symbol_specs.yaml").to_path_buf() };
+            convert_command(from_arg, to_arg, options).unwrap();
+        }
+
+        let [input_hash, output_hash] = [start_file_name, end_file_name].map(|file_name| {
+            let mut hasher = Sha256::new();
+            let mut file = fs::File::open(file_name).unwrap();
+            io::copy(&mut file, &mut hasher).unwrap();
+            hasher.finalize()
+        });
+
+        assert_eq!(input_hash, output_hash);
+
+    }
+
+    #[test]
+    fn convert_dji_sd() {
+        convert("test_files/djibinsetnorm", "djibin:font.bin", "djibin:end.bin");
+    }
+
+    #[test]
+    fn convert_dji_hd() {
+        convert("test_files/djibinsetnorm", "djibin:font_hd.bin", "djibin:end.bin");
+    }
+
+    #[test]
+    fn convert_avatar_sd() {
+        convert("test_files/avatar", "avatar:user_ardu_36.png", "avatar:end.png");
+    }
+
+    #[test]
+    fn convert_avatar_hd() {
+        convert("test_files/avatar", "avatar:user_ardu_24.png", "avatar:end.png");
+    }
+
+}
