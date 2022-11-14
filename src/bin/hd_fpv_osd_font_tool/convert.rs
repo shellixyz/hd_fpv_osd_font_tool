@@ -154,78 +154,155 @@ pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow:
 mod tests {
 
     use std::path::{PathBuf, Path};
-    use std::env;
     use std::{io, fs};
 
+    use hd_fpv_osd_font_tool::osd::tile;
+    use hd_fpv_osd_font_tool::prelude::bin_file::{self, FontPart};
+    use strum::IntoEnumIterator;
     use temp_dir::TempDir;
     use sha2::{Sha256, Digest};
+    use itertools::Itertools;
 
     use super::convert_command;
 
-    // convert file through all the supported formats back to original file format and check whether the start and end files are identical
-    fn convert<P: AsRef<Path>>(start_file_root: P, format: &str, start_file: P) {
+    // // convert file through all the supported formats back to original file format and check whether the start and end files are identical
+    // fn convert<P: AsRef<Path>>(start_file_root: P, format: &str, start_file: P) {
 
-        let start_end_ext = match format {
-            "djibin" => "bin",
-            "avatar" => "png",
-            _ => panic!("unsupported format: {}", format)
-        };
+    //     let start_end_ext = match format {
+    //         "djibin" => "bin",
+    //         "avatar" => "png",
+    //         _ => panic!("unsupported format: {}", format)
+    //     };
 
-        let start_file = start_file.as_ref().to_path_buf().with_extension(start_end_ext);
-        let end_file = Path::new("end").to_path_buf().with_extension(start_end_ext);
+    //     let start_file = start_file.as_ref().to_path_buf().with_extension(start_end_ext);
+    //     let end_file = Path::new("end").to_path_buf().with_extension(start_end_ext);
 
-        let start_arg = format!("{format}:{}", start_file.to_str().unwrap());
-        let end_arg = format!("{format}:{}", end_file.to_str().unwrap());
+    //     let start_arg = format!("{format}:{}", start_file.to_str().unwrap());
+    //     let end_arg = format!("{format}:{}", end_file.to_str().unwrap());
 
-        let convert_loop = [
-            &start_arg,
-            "tilegrid:grid.png",
-            "tiledir:tiledir",
-            "symdir:symdir",
-            &end_arg
+    //     let convert_loop = [
+    //         &start_arg,
+    //         "tilegrid:grid.png",
+    //         "tiledir:tiledir",
+    //         "symdir:symdir",
+    //         &end_arg
+    //     ];
+
+    //     let start_file_path: PathBuf = [start_file_root.as_ref(), start_file.as_ref()].iter().collect();
+    //     let temp_dir = TempDir::new().unwrap();
+    //     fs::copy(start_file_path, temp_dir.child(start_file.to_str().unwrap())).unwrap();
+    //     fs::copy("symbol_specs/ardu.yaml", temp_dir.child("ardu_symbol_specs.yaml")).unwrap();
+    //     env::set_current_dir(temp_dir.path()).unwrap();
+
+    //     for args in convert_loop.windows(2) {
+    //         let (from_arg, to_arg) = (args[0], args[1]);
+    //         let options = crate::ConvertOptions { symbol_specs_file: &Path::new("ardu_symbol_specs.yaml").to_path_buf() };
+    //         convert_command(from_arg, to_arg, options).unwrap();
+    //     }
+
+    //     let [input_hash, output_hash] = [start_file, end_file].map(|file_name| {
+    //         let mut hasher = Sha256::new();
+    //         let mut file = fs::File::open(file_name).unwrap();
+    //         io::copy(&mut file, &mut hasher).unwrap();
+    //         hasher.finalize()
+    //     });
+
+    //     assert_eq!(input_hash, output_hash);
+
+    // }
+
+    // #[test]
+    // fn convert_dji_sd() {
+    //     convert("test_files/djibinsetnorm", "djibin", "font");
+    // }
+
+    // #[test]
+    // fn convert_dji_hd() {
+    //     convert("test_files/djibinsetnorm", "djibin", "font_hd");
+    // }
+
+    // #[test]
+    // fn convert_avatar_sd() {
+    //     convert("test_files/avatar", "avatar", "user_ardu_36");
+    // }
+
+    // #[test]
+    // fn convert_avatar_hd() {
+    //     convert("test_files/avatar", "avatar", "user_ardu_24");
+    // }
+
+    #[test]
+    fn convert_all() {
+        let formats = [
+            "djibin",
+            "tilegrid",
+            "tiledir",
+            "symdir"
         ];
 
-        let start_file_path: PathBuf = [start_file_root.as_ref(), start_file.as_ref()].iter().collect();
         let temp_dir = TempDir::new().unwrap();
-        fs::copy(start_file_path, temp_dir.child(start_file.to_str().unwrap())).unwrap();
-        fs::copy("symbol_specs/ardu.yaml", temp_dir.child("ardu_symbol_specs.yaml")).unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
 
-        for args in convert_loop.windows(2) {
-            let (from_arg, to_arg) = (args[0], args[1]);
-            let options = crate::ConvertOptions { symbol_specs_file: &Path::new("ardu_symbol_specs.yaml").to_path_buf() };
-            convert_command(from_arg, to_arg, options).unwrap();
+        for tile_kind in tile::Kind::iter() {
+            let from_djibin = bin_file::normalized_file_path("test_files/djibinsetnorm", tile_kind, &None, FontPart::Base);
+            let from_arg = format!("djibin:{}", from_djibin.to_str().unwrap());
+            for to_format in formats {
+                println!("testing djibin ({tile_kind}) -> {to_format}");
+                let to_name = format!("{to_format}_{tile_kind}");
+                let to_rel_path = match to_format {
+                    "djibin" => format!("{to_name}.bin"),
+                    "tilegrid" => format!("{to_name}.png"),
+                    _ => to_name
+                };
+                let to_path = temp_dir.child(to_rel_path);
+                let to_arg = format!("{to_format}:{}", to_path.to_str().unwrap());
+                let options = crate::ConvertOptions { symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf() };
+                convert_command(&from_arg, &to_arg, options).unwrap();
+            }
         }
 
-        let [input_hash, output_hash] = [start_file, end_file].map(|file_name| {
-            let mut hasher = Sha256::new();
-            let mut file = fs::File::open(file_name).unwrap();
-            io::copy(&mut file, &mut hasher).unwrap();
-            hasher.finalize()
-        });
+        for tile_kind in tile::Kind::iter() {
+            for testing_formats in formats.iter().permutations(2) {
+                let (from_format, to_format) = (testing_formats[0], testing_formats[1]);
+                println!("testing {from_format} ({tile_kind}) -> {to_format}");
 
-        assert_eq!(input_hash, output_hash);
+                let from_name = format!("{from_format}_{tile_kind}");
+                let from_rel_path = match *from_format {
+                    "djibin" => format!("{from_name}.bin"),
+                    "tilegrid" => format!("{from_name}.png"),
+                    _ => from_name
+                };
 
-    }
+                let to_name = format!("{to_format}_{tile_kind}");
+                let to_rel_path = match *to_format {
+                    "djibin" => format!("{to_name}_from_{from_format}.bin"),
+                    "tilegrid" => format!("{to_name}_from_{from_format}.png"),
+                    _ => format!("{to_name}_from_{from_format}")
+                };
 
-    #[test]
-    fn convert_dji_sd() {
-        convert("test_files/djibinsetnorm", "djibin", "font");
-    }
+                let from_path = temp_dir.child(from_rel_path);
+                let to_path = temp_dir.child(to_rel_path);
+                let from_arg = format!("{from_format}:{}", from_path.to_str().unwrap());
+                let to_arg = format!("{to_format}:{}", to_path.to_str().unwrap());
+                let options = crate::ConvertOptions { symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf() };
+                convert_command(&from_arg, &to_arg, options).unwrap();
+            }
+        }
 
-    #[test]
-    fn convert_dji_hd() {
-        convert("test_files/djibinsetnorm", "djibin", "font_hd");
-    }
+        for tile_kind in tile::Kind::iter() {
+            let original_djibin = bin_file::normalized_file_path("test_files/djibinsetnorm", tile_kind, &None, FontPart::Base);
+            let generated_files = formats[1..].iter().map(|format|
+                temp_dir.child(format!("djibin_{tile_kind}_from_{format}.bin"))
+            ).collect::<Vec<PathBuf>>();
+            dbg!(&generated_files);
+            let hashes: Vec<Vec<u8>> = [original_djibin].iter().chain(generated_files.iter()).map(|file_path| {
+                let mut hasher = Sha256::new();
+                let mut file = fs::File::open(file_path).unwrap();
+                io::copy(&mut file, &mut hasher).unwrap();
+                hasher.finalize().to_vec()
+            }).collect();
+            assert!(hashes.windows(2).all(|hash_window| hash_window[0] == hash_window[1]));
+        }
 
-    #[test]
-    fn convert_avatar_sd() {
-        convert("test_files/avatar", "avatar", "user_ardu_36");
-    }
-
-    #[test]
-    fn convert_avatar_hd() {
-        convert("test_files/avatar", "avatar", "user_ardu_24");
     }
 
 }
