@@ -169,11 +169,11 @@ impl TryFrom<Bytes> for Tile {
 impl TryFrom<Image> for Tile {
     type Error = InvalidDimensionsError;
 
-    fn try_from(sub_image: Image) -> Result<Self, Self::Error> {
-        let (width, height) = sub_image.dimensions();
+    fn try_from(image: Image) -> Result<Self, Self::Error> {
+        let (width, height) = image.dimensions();
         let kind = Kind::try_from(Dimensions { width, height })?;
         let mut tile = Self::new(kind);
-        tile.image.copy_from(&sub_image, 0, 0).unwrap();
+        tile.image.copy_from(&image, 0, 0).unwrap();
         Ok(tile)
     }
 }
@@ -184,4 +184,69 @@ impl TryFrom<&mut BinFileReader> for Tile {
     fn try_from(file: &mut BinFileReader) -> Result<Self, Self::Error> {
         Self::read_from_bin_file(file)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::{PathBuf, Path};
+    use std::io::ErrorKind as IOErrorKind;
+
+    use strum::IntoEnumIterator;
+
+    use crate::image::ReadError as ImageReadError;
+
+    use super::{Tile, Kind, Dimensions, LoadError, InvalidSizeError};
+
+    const TEST_FILES_DIR: &str = "test_files";
+
+    fn test_file_path<P: AsRef<Path>>(file_path: P) -> PathBuf {
+        [Path::new(TEST_FILES_DIR), file_path.as_ref()].iter().collect()
+    }
+
+    fn test_tile_file_path(tile_kind: Kind) -> PathBuf {
+        test_file_path(&format!("{}_tile.png", tile_kind.to_string().to_lowercase()))
+    }
+
+    #[test]
+    fn image_size() {
+        for kind in Kind::iter() {
+            let tile = Tile::new(kind);
+            assert_eq!(Dimensions::from(tile.dimensions()), kind.dimensions())
+        }
+    }
+
+    #[test]
+    fn load() {
+        for kind in Kind::iter() {
+            let tile = Tile::load_image_file(test_tile_file_path(kind)).unwrap();
+            assert_eq!(tile.kind(), kind);
+        }
+    }
+
+    #[test]
+    fn load_inexistent() {
+        let result = Tile::load_image_file(test_file_path("inexistent.png"));
+        match result {
+            Err(LoadError::ImageReadError(ImageReadError::OpenError(file_error))) => {
+                assert!(file_error.error().kind() == IOErrorKind::NotFound)
+            },
+            Err(error) => panic!("got the wrong error: {error:?}"),
+            Ok(_) => panic!("did not get an error !"),
+        }
+    }
+
+    #[test]
+    fn try_from_bytes() {
+        for kind in Kind::iter() {
+            let bytes = vec![0; kind.raw_rgba_size_bytes()];
+            let result = Tile::try_from(bytes);
+            assert!(matches!(result, Ok(_)))
+        }
+
+        let bytes = vec![1, 2, 3];
+        let bytes_len = bytes.len() as u64;
+        let result = Tile::try_from(bytes);
+        assert!(matches!(result, Err(InvalidSizeError(size)) if size == bytes_len))
+    }
+
 }
