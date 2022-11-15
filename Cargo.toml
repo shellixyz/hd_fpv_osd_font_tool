@@ -26,7 +26,6 @@ tap = "1.0.1"
 thiserror = "1.0.37"
 
 [dev-dependencies]
-fs_extra = "1.2.0"
 itertools = "0.10.5"
 sha2 = "0.10.6"
 temp-dir = "0.1.11"
