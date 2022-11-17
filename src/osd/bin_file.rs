@@ -111,6 +111,18 @@ impl LoadError {
     pub fn tile_kind_mismatch<P: AsRef<Path>>(file_path: P, loaded: TileKind, requested: TileKind) -> Self {
         Self::LoadedTileKindDoesNotMatchRequested { file_path: file_path.as_ref().to_path_buf(), loaded, requested }
     }
+
+    pub fn because_file_is_missing(&self) -> bool {
+        match self {
+            LoadError::OpenError(OpenError::FileError(file_error)) => {
+                match file_error.error().kind() {
+                    std::io::ErrorKind::NotFound => true,
+                    _ => false,
+                }
+            },
+            _ => false
+        }
+    }
 }
 
 pub enum SeekFrom {
