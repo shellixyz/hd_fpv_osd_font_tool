@@ -1,9 +1,14 @@
 
 pub use crate::osd::{
-    bin_file,
+    bin_file::{
+        self,
+        LoadError as BinFileLoadError,
+    },
     avatar_file::load as load_avatar_file,
     tile::{
+        self,
         Tile,
+        Dimensions as TileDimensions,
         container::{
             into_tile_grid::IntoTileGrid,
             load_symbols_from_dir::load_symbols_from_dir,
