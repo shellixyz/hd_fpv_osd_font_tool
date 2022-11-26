@@ -113,15 +113,10 @@ impl LoadError {
     }
 
     pub fn because_file_is_missing(&self) -> bool {
-        match self {
-            LoadError::OpenError(OpenError::FileError(file_error)) => {
-                match file_error.error().kind() {
-                    std::io::ErrorKind::NotFound => true,
-                    _ => false,
-                }
-            },
-            _ => false
-        }
+        matches!(self,
+            LoadError::OpenError(OpenError::FileError(file_error))
+                if matches!(file_error.error().kind(), std::io::ErrorKind::NotFound)
+        )
     }
 }
 
