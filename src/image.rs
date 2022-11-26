@@ -45,7 +45,8 @@ pub fn read_image_file<P: AsRef<Path>>(path: P) -> Result<DynamicImage, ReadErro
     reader.decode().map_err(|error| ReadError::decode_error(&path, error) )
 }
 
-#[derive(Debug, From, Error)]
+#[derive(Debug, From, thiserror::Error)]
+#[error("failed to write image {file_path}: {error}")]
 pub struct WriteError {
     file_path: PathBuf,
     error: ImageError,
@@ -54,12 +55,6 @@ pub struct WriteError {
 impl WriteError {
     pub fn new<P: AsRef<Path>>(path: P, error: ImageError) -> Self {
         Self { file_path: path.as_ref().to_path_buf(), error }
-    }
-}
-
-impl Display for WriteError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "failed to write image {}: {}", self.file_path.to_string_lossy(), self.error)
     }
 }
 
