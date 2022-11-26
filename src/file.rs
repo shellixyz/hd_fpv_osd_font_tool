@@ -1,7 +1,7 @@
 
 use std::{io::Error as IOError, path::{PathBuf, Path}, fmt::Display, fs::File};
 
-use derive_more::Error;
+use thiserror::Error;
 use getset::Getters;
 
 
@@ -32,6 +32,7 @@ impl Display for Action {
 
 #[derive(Debug, Error, Getters)]
 #[getset(get = "pub")]
+#[error("{action} {path}: {error}")]
 pub struct Error {
     action: Action,
     path: PathBuf,
@@ -41,12 +42,6 @@ pub struct Error {
 impl Error {
     pub fn new<P: AsRef<Path>>(action: Action, path: P, error: IOError) -> Self {
         Self { action, path: path.as_ref().to_path_buf(), error }
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}: {}", self.action, self.path.to_string_lossy(), self.error)
     }
 }
 
