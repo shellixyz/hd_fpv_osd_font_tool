@@ -1,11 +1,16 @@
 
 #![forbid(unsafe_code)]
 
-use std::path::PathBuf;
-use std::process::exit;
+use std::{
+    io::Write,
+    path::PathBuf,
+    process::exit
+};
 
 use clap::{Parser, Subcommand};
 
+use env_logger::fmt::Color;
+use getset::CopyGetters;
 use hd_fpv_osd_font_tool::prelude::*;
 use hd_fpv_osd_font_tool::log_level::LogLevel;
 
@@ -15,12 +20,13 @@ mod convert_set;
 use convert::convert_command;
 use convert_set::convert_set_command;
 
-#[derive(Parser)]
+#[derive(Parser, CopyGetters)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
 
     #[clap(short, long, value_parser, default_value_t = LogLevel::Info)]
     #[arg(value_enum)]
+    #[getset(get_copy = "pub")]
     log_level: LogLevel,
 
     #[command(subcommand)]
@@ -129,7 +135,17 @@ pub struct ConvertOptions<'a> {
 fn main() {
     let cli = Cli::parse();
 
-    pretty_env_logger::formatted_builder().parse_filters(cli.log_level.to_string().as_str()).init();
+    env_logger::builder()
+        .format(|buf, record| {
+            let level_style = buf.default_level_style(record.level());
+            write!(buf, "{:<5}", level_style.value(record.level()))?;
+            let mut style = buf.style();
+            style.set_color(Color::White).set_bold(true);
+            write!(buf, "{}", style.value(" > "))?;
+            writeln!(buf, "{}", record.args())
+        })
+        .parse_filters(cli.log_level().to_string().as_str())
+        .init();
 
     let command_result = match &cli.command {
         Commands::Convert { from, to, symbol_specs_file } => convert_command(from, to, ConvertOptions { symbol_specs_file }),
