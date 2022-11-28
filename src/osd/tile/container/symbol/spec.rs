@@ -41,8 +41,8 @@ pub struct Specs(Vec<Spec>);
 impl Specs {
 
     pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadSpecsFileError> {
-        let file = file::open(&path)?;
-        let file_content: HashMap<String, String> = serde_yaml::from_reader(file)
+        let mut file = file::open(&path)?;
+        let file_content: HashMap<String, String> = serde_yaml::from_reader(file.std_file())
             .map_err(|error| LoadSpecsFileError::file_structure(&path, error))?;
         lazy_static! {
             static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();

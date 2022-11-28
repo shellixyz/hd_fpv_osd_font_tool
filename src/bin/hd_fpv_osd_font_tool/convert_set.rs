@@ -108,7 +108,7 @@ fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &Convert
         TileSetGridsNorm { dir, ident  } => tile_set.save_to_grids_norm(dir, ident)?,
         TileSetDir(dir) => tile_set.save_tiles_to_dir(dir)?,
         SymbolSetDir(dir) => {
-            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
+            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
             tile_set.into_symbol_set(&sym_specs).unwrap().save_to_dir(dir)?;
         },
     }

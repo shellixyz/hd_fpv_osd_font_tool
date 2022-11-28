@@ -1,9 +1,7 @@
 
 use std::path::{Path, PathBuf};
-use std::io::{Read, Seek, Write, Error as IOError};
-use std::fs::File;
+use std::io::Error as IOError;
 
-use close_err::Closable;
 use derive_more::From;
 use thiserror::Error;
 use getset::Getters;
@@ -21,6 +19,7 @@ use super::tile::{
     },
 };
 
+use crate::file::FileWithPath;
 use crate::{
     file::{
         self,
@@ -68,7 +67,7 @@ impl OpenError {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, From)]
 pub enum SeekError {
     #[error(transparent)]
     FileError(FileError),
@@ -129,7 +128,7 @@ pub enum SeekFrom {
 #[derive(Getters)]
 pub struct BinFileReader {
     file_path: PathBuf,
-    file: File,
+    file: FileWithPath,
 
     #[getset(get = "pub")]
     tile_kind: tile::Kind,
@@ -153,7 +152,7 @@ impl BinFileReader {
 
     pub(crate) fn read_tile_bytes(&mut self) -> Result<tile::Bytes, FileError> {
         let mut tile_bytes = vec![0; self.tile_kind.raw_rgba_size_bytes()];
-        self.file.read_exact(&mut tile_bytes).map_err(|error| FileError::new(FileAction::Read, &self.file_path, error))?;
+        self.file.read_exact(&mut tile_bytes)?;
         self.pos += 1;
         Ok(tile_bytes)
     }
@@ -179,8 +178,7 @@ impl BinFileReader {
             return Err(SeekError::out_of_bounds(&self.file_path, new_pos));
         }
         let new_pos= new_pos * self.tile_kind.raw_rgba_size_bytes() as isize;
-        self.file.seek(std::io::SeekFrom::Start(new_pos as u64))
-            .map_err(|error| SeekError::file_seek_error(&self.file_path, error))?;
+        self.file.seek(std::io::SeekFrom::Start(new_pos as u64))?;
         self.pos = new_pos as usize;
         Ok(self.pos)
     }
@@ -369,8 +367,7 @@ pub enum FillRemainingSpaceError {
 
 #[derive(Debug)]
 pub struct BinFileWriter {
-    file_path: PathBuf,
-    file: File,
+    file: FileWithPath,
     tile_count: usize,
     tile_kind: Option<TileKind>,
 }
@@ -379,7 +376,6 @@ impl BinFileWriter {
 
     pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, FileError> {
         Ok(Self {
-            file_path: path.as_ref().to_path_buf(),
             file: file::create(path)?,
             tile_count: 0,
             tile_kind: None
@@ -396,7 +392,7 @@ impl BinFileWriter {
             },
             None => self.tile_kind = Some(tile.kind()),
         }
-        self.file.write_all(tile.as_raw()).map_err(|error| TileWriteError::file_error(&self.file_path, FileAction::Write, error))?;
+        self.file.write_all(tile.as_raw())?;
         self.tile_count += 1;
         Ok(())
     }
@@ -418,7 +414,7 @@ impl BinFileWriter {
         if self.tile_count < TILE_COUNT {
             return Err(TileWriteError::NotEnoughTiles(self));
         }
-        self.file.close().map_err(|error| TileWriteError::file_error(self.file_path, FileAction::Close, error))?;
+        self.file.close()?;
         Ok(())
     }
 

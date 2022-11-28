@@ -87,7 +87,7 @@ fn convert_tiles(tiles: Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions
         },
         TileDir(to_path) => tiles.save_tiles_to_dir(to_path)?,
         SymbolDir(to_path) => {
-            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
+            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
             tiles.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
         },
         BinFile(to_path) => tiles.save_to_bin_file(to_path)?,
@@ -102,7 +102,7 @@ fn convert_tile_grid(tile_grid: TileGrid, to_arg: &ConvertArg, options: &Convert
         BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path)?,
         TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path)?,
         SymbolDir(to_path) => {
-            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file)?;
+            let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
             tile_grid.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
         },
         TileGrid(to_path) => tile_grid.save_image(to_path)?,
