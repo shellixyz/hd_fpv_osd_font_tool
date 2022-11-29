@@ -1,0 +1,32 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH convert 1  "convert " 
+.SH NAME
+convert \- Converts between tile collection formats
+.SH SYNOPSIS
+\fBconvert\fR [\fB\-s\fR|\fB\-\-symbol\-specs\-file\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIFROM\fR> <\fITO\fR> 
+.SH DESCRIPTION
+Converts between tile collection formats
+.PP
+Valid collection specifications are:{n} * djibin:path       raw RGBA file{n} * avatar:path       Avatar tile collection image file * tilegrid:path     grid of tiles image{n} * tiledir:path      directory with each tile in a separate file{n} * symdir:path       directory with each symbol in a separate file{n}
+.PP
+Bin files normalized names{n} Generic bin files (no ident):{n} SD: font.bin + font2.bin{n} HD: font_hd.bin + font_hd_2.bin{n} With ident:{n} SD: font_<ident>.bin + font_<ident>_2.bin{n} HD: font_<ident>_hd.bin + font_<ident>_hd_2.bin{n}
+.PP
+Tile directory (tiledir){n} A tile directory is a directory representing a collection of tiles with each tile in a separate file. Each file{n} is named from the index of the tile 0 padded to 3 digits and with the png extensions e.g. 011.png
+.PP
+Symbol directory (symdir){n} A symbol is a small sub\-collection of tiles representing a full symbol (symbol spanning across several tiles).{n} When saving to a symdir the symbol specifications file can be specified with the \-s/\-\-symbols\-specs\-file argument.{n} A symbol directory contains every symbol of the collection with specific name formats:{n} \- symbols spanning a single tile: index of the symbol 0 padded to 3 digits and with png extension e.g. 011.png{n} \- other symbols: index of the first tile and index of the last tile 0 padded to 3 digits and separated by `\-` e.g. 030\-032.png
+.PP
+Example: extracting the tiles from a bin file to individual files in the `tiles` directory:{n} `convert bin:font.bin tiledir:tiles`
+.SH OPTIONS
+.TP
+\fB\-s\fR, \fB\-\-symbol\-specs\-file\fR=\fISYMBOL_SPECS_FILE\fR [default: sym_specs.yaml]
+
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help information (use `\-h` for a summary)
+.TP
+<\fIFROM\fR>
+source collection in the form of a tile collection specification, see above
+.TP
+<\fITO\fR>
+destination collection in the form of a tile collection specification, see above

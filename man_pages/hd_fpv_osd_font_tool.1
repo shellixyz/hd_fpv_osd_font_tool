@@ -1,0 +1,32 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH hd_fpv_osd_font_tool 1  "hd_fpv_osd_font_tool 0.1.0" 
+.SH NAME
+hd_fpv_osd_font_tool
+.SH SYNOPSIS
+\fBhd_fpv_osd_font_tool\fR [\fB\-l\fR|\fB\-\-log\-level\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] <\fIsubcommands\fR>
+.SH DESCRIPTION
+.SH OPTIONS
+.TP
+\fB\-l\fR, \fB\-\-log\-level\fR=\fILOG_LEVEL\fR [default: info]
+
+.br
+[\fIpossible values: \fRoff, error, warn, info, debug, trace]
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help information
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version information
+.SH SUBCOMMANDS
+.TP
+hd_fpv_osd_font_tool\-convert(1)
+Converts between tile collection formats
+.TP
+hd_fpv_osd_font_tool\-convert\-set(1)
+Converts between tile collection set formats
+.TP
+hd_fpv_osd_font_tool\-help(1)
+Print this message or the help of the given subcommand(s)
+.SH VERSION
+v0.1.0

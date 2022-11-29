@@ -1,0 +1,34 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH convert-set 1  "convert-set " 
+.SH NAME
+convert\-set \- Converts between tile collection set formats
+.SH SYNOPSIS
+\fBconvert\-set\fR [\fB\-s\fR|\fB\-\-symbol\-specs\-file\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIFROM\fR> <\fITO\fR> 
+.SH DESCRIPTION
+Converts between tile collection set formats
+.PP
+A collection set contains both SD and HD tiles/symbols
+.PP
+Valid collection specifications are:{n} * djibinset:sd_path:sd_2_path:hd_path:hd_2_path{n} * djibinsetnorm:path:ident      set of bin files with normalized names{n} * tilesetgrids:sd_path:hd_path  grids of tiles image forming a SD/HD set{n} * tilesetgridsnorm:path:ident   grid of tiles image set with normalized names{n} * tilesetdir:path               directory with SD and HD tiles in the corresponding directory{n} * symsetdir:path                directory with SD and HD symbols in the corresponding directory
+.PP
+Bin files normalized names (binsetnorm){n} Generic bin files (no ident):{n} SD: font.bin + font2.bin{n} HD: font_hd.bin + font_hd_2.bin{n} With ident:{n} SD: font_<ident>.bin + font_<ident>_2.bin{n} HD: font_<ident>_hd.bin + font_<ident>_hd_2.bin{n} If `path/indent` is not provided will read the files from the current directory without ident
+.PP
+Grid files normalized names{n} Generic grid image files (no ident):{n} SD: grid.png{n} HD: grid_hd.bin{n} With ident:{n} SD: grid_<ident>.png{n} HD: grid_<ident>_hd.png
+.PP
+Tile/symbol sets directory (tilesetdir / symsetdir){n} A directory with the SD tiles in the SD subdirectory and HD tiles in the HD subdirectory{n} When saving to a symsetdir the symbol specifications file can be specified with the \-s/\-\-symbols\-specs\-file argument.{n} If `path/indent` is not provided will read the files from the current directory without ident
+.PP
+Example: extracting the tiles from a bin file set with normalized name and no ident from the `font_files` directory{n} to individual files. SD tiles in the `tiles/SD` directory and HD tiles in the `tiles/HD` directory:{n} `convert\-set binsetnorm:font_files tiledir:tiles`
+.SH OPTIONS
+.TP
+\fB\-s\fR, \fB\-\-symbol\-specs\-file\fR=\fISYMBOL_SPECS_FILE\fR [default: sym_specs.yaml]
+
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help information (use `\-h` for a summary)
+.TP
+<\fIFROM\fR>
+source collection in the form of a tile collection specification, see above
+.TP
+<\fITO\fR>
+destination collection in the form of a tile collection specification, see above
