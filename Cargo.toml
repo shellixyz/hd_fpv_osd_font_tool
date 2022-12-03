@@ -1,9 +1,18 @@
 [package]
 name = "hd_fpv_osd_font_tool"
+description = "A software tool to manipulate video files and OSD files recoded with the DJI FPV system"
 version = "1.0.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "GPL-2.0-only"
+authors = ["Michel Pastor <shellixyz@gmail.com>"]
+rust-version = "1.61"
+repository = "https://github.com/shellixyz/hd_fpv_osd_font_tool"
+homepage = "https://github.com/shellixyz/hd_fpv_osd_font_tool"
+keywords = ["dji", "fpv", "font", "osd"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+exclude = ["*.webm", "*.osd", "*.mp4", "*.bin"]
+publish = false
 
 [dependencies]
 anyhow = "1.0.66"
