@@ -155,6 +155,7 @@ impl SymlinkError {
     }
 }
 
+#[cfg(unix)]
 pub fn symlink<P: AsRef<Path>, Q: AsRef<Path>>(original_path: P, link_path: Q) -> Result<(), SymlinkError> {
     std::os::unix::fs::symlink(&original_path, &link_path).map_err(|error| SymlinkError::new(original_path, link_path, error))
 }
