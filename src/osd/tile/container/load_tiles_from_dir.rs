@@ -42,8 +42,8 @@ pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<
         let tile = match Tile::load_image_file(tile_path) {
             Ok(loaded_tile) => Some(loaded_tile),
             Err(error) => match &error {
-                TileLoadError::ImageReadError(ImageReadError::OpenError(open_error)) =>
-                    match open_error.error().kind() {
+                TileLoadError::ImageReadError(ImageReadError::OpenError { file_path: _, error: open_error }) =>
+                    match open_error.kind() {
                         std::io::ErrorKind::NotFound => None,
                         _ => return Err(error.into()),
                     },

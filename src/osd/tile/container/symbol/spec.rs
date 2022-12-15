@@ -1,15 +1,21 @@
 
-use std::{collections::HashMap, path::PathBuf};
-use std::ops::Range;
-use std::path::Path;
+use std::{
+    collections::HashMap,
+    io::Error as IOError,
+    ops::Range,
+    path::{
+        Path,
+        PathBuf,
+    },
+};
+
 use derive_more::{From, Deref};
 use getset::CopyGetters;
 use parse_int::parse;
 use regex::Regex;
 use lazy_static::lazy_static;
 use thiserror::Error;
-
-use crate::file::{self, Error as FileError};
+use fs_err::File;
 
 
 #[derive(Debug, CopyGetters)]
@@ -41,8 +47,7 @@ pub struct Specs(Vec<Spec>);
 impl Specs {
 
     pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadSpecsFileError> {
-        let mut file = file::open(&path)?;
-        let file_content: HashMap<String, String> = serde_yaml::from_reader(file.std_file())
+        let file_content: HashMap<String, String> = serde_yaml::from_reader(File::open(&path)?)
             .map_err(|error| LoadSpecsFileError::file_structure(&path, error))?;
         lazy_static! {
             static ref SPEC_RE: Regex = Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();
@@ -76,7 +81,7 @@ impl From<Vec<Spec>> for Specs {
 #[derive(Debug, From, Error)]
 pub enum LoadSpecsFileError {
     #[error("failed to open symbol specs file: {0}")]
-    OpenError(FileError),
+    OpenError(IOError),
     #[error("failed to parse symbol specs file {file_path}: {error}")]
     FileStructureError { file_path: PathBuf, error: serde_yaml::Error },
     #[error("invalid spec for symbol {symbol_name} in file {file_path}: {spec}")]

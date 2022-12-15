@@ -1,8 +1,7 @@
 
-use std::path::PathBuf;
+use std::{path::PathBuf, io::Write};
 use clap::CommandFactory;
-
-use hd_fpv_osd_font_tool::file;
+use fs_err::File;
 
 use super::cli::Cli;
 
@@ -20,7 +19,7 @@ pub fn command_man_page_path(exe_name: &str, subcommand: Option<&clap::Command>)
 }
 
 pub fn generate_exe_man_page(exe_name: &str) -> anyhow::Result<()> {
-    let mut file = file::create(command_man_page_path(exe_name, None))?;
+    let mut file = File::create(command_man_page_path(exe_name, None))?;
     let man = clap_mangen::Man::new(Cli::command());
     let mut buffer: Vec<u8> = Default::default();
     man.render(&mut buffer)?;
@@ -33,7 +32,7 @@ pub fn generate_man_page_for_subcommands(exe_name: &str) -> anyhow::Result<()> {
     let exclusions = ["generate-shell-autocompletion-files", "generate-man-pages"];
     for subcommand in command.get_subcommands() {
         if ! exclusions.contains(&subcommand.get_name()) {
-            let mut file = file::create(command_man_page_path(exe_name, Some(subcommand)))?;
+            let mut file = File::create(command_man_page_path(exe_name, Some(subcommand)))?;
             let mut buffer: Vec<u8> = Default::default();
             let man = clap_mangen::Man::new(subcommand.to_owned());
             man.render(&mut buffer)?;

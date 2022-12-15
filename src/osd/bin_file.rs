@@ -1,11 +1,12 @@
 
 use std::path::{Path, PathBuf};
-use std::io::Error as IOError;
+use std::io::{Error as IOError, Read, Seek, Write};
 
 use derive_more::From;
 use thiserror::Error;
 use getset::Getters;
 use strum::{IntoEnumIterator, Display};
+use fs_err::File;
 
 use super::tile::{
     self,
@@ -19,15 +20,7 @@ use super::tile::{
     },
 };
 
-use crate::file::FileWithPath;
-use crate::{
-    file::{
-        self,
-        Error as FileError,
-        Action as FileAction,
-    },
-    osd::tile::InvalidSizeError,
-};
+use crate::osd::tile::InvalidSizeError;
 
 
 pub const TILE_COUNT: usize = 256;
@@ -52,7 +45,7 @@ impl TileKind {
 #[derive(Debug, From, Error)]
 pub enum OpenError {
     #[error(transparent)]
-    FileError(FileError),
+    FileError(IOError),
     #[from(ignore)]
     #[error("file {file_path} has a size ({size}B) which does not match a valid bin file size")]
     InvalidSizeError {
@@ -70,7 +63,7 @@ impl OpenError {
 #[derive(Debug, Error, From)]
 pub enum SeekError {
     #[error(transparent)]
-    FileError(FileError),
+    FileError(IOError),
     #[error("cannot seek outside of the file ({file_path}) new position would be {new_pos}")]
     OutOfBoundsError {
         file_path: PathBuf,
@@ -79,10 +72,6 @@ pub enum SeekError {
 }
 
 impl SeekError {
-    pub fn file_seek_error<P: AsRef<Path>>(file_path: P, error: IOError) -> Self {
-        Self::FileError(FileError::new(FileAction::Seek, file_path, error))
-    }
-
     pub fn out_of_bounds<P: AsRef<Path>>(file_path: P, new_pos: isize) -> Self {
         Self::OutOfBoundsError { file_path: file_path.as_ref().to_path_buf(), new_pos }
     }
@@ -91,7 +80,7 @@ impl SeekError {
 #[derive(Debug, From, Error, Display)]
 pub enum SeekReadError {
     SeekError(SeekError),
-    FileError(FileError)
+    FileError(IOError)
 }
 
 #[derive(Debug, From, Error)]
@@ -99,7 +88,7 @@ pub enum LoadError {
     #[error(transparent)]
     OpenError(OpenError),
     #[error(transparent)]
-    ReadError(FileError),
+    ReadError(IOError),
     #[error("tile kind loaded from {file_path} does not match requested: load {loaded}, requested {requested}")]
     LoadedTileKindDoesNotMatchRequested { file_path: PathBuf, loaded: TileKind, requested: TileKind },
     #[error("File size does not match a valid bin file size: file {file_path}, size {size}B")]
@@ -114,7 +103,7 @@ impl LoadError {
     pub fn because_file_is_missing(&self) -> bool {
         matches!(self,
             LoadError::OpenError(OpenError::FileError(file_error))
-                if matches!(file_error.error().kind(), std::io::ErrorKind::NotFound)
+                if matches!(file_error.kind(), std::io::ErrorKind::NotFound)
         )
     }
 }
@@ -128,7 +117,7 @@ pub enum SeekFrom {
 #[derive(Getters)]
 pub struct BinFileReader {
     file_path: PathBuf,
-    file: FileWithPath,
+    file: File,
 
     #[getset(get = "pub")]
     tile_kind: tile::Kind,
@@ -140,7 +129,7 @@ pub struct BinFileReader {
 impl BinFileReader {
 
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, OpenError> {
-        let file = file::open(&path)?;
+        let file = File::open(&path)?;
         let tile_kind = tile::Kind::for_bin_file_size_bytes(file.metadata().unwrap().len())
             .map_err(|error| {
                 let InvalidSizeError(size) = error;
@@ -150,14 +139,14 @@ impl BinFileReader {
         Ok(Self { file, file_path: path.as_ref().to_path_buf(), tile_kind, pos: 0 })
     }
 
-    pub(crate) fn read_tile_bytes(&mut self) -> Result<tile::Bytes, FileError> {
+    pub(crate) fn read_tile_bytes(&mut self) -> Result<tile::Bytes, IOError> {
         let mut tile_bytes = vec![0; self.tile_kind.raw_rgba_size_bytes()];
         self.file.read_exact(&mut tile_bytes)?;
         self.pos += 1;
         Ok(tile_bytes)
     }
 
-    pub fn read_tile(&mut self) -> Result<Tile, FileError> {
+    pub fn read_tile(&mut self) -> Result<Tile, IOError> {
         Ok(Tile::try_from(self.read_tile_bytes()?).unwrap())
     }
 
@@ -196,7 +185,7 @@ impl BinFileReader {
         Ok(self.read_tiles()?.into_tile_grid())
     }
 
-    pub fn read_tiles(self) -> Result<Vec<Tile>, FileError> {
+    pub fn read_tiles(self) -> Result<Vec<Tile>, IOError> {
         let mut tiles = vec![];
         for tile in self {
             tiles.push(tile?);
@@ -209,7 +198,7 @@ impl BinFileReader {
 pub struct BinFileReaderIterator(BinFileReader);
 
 impl Iterator for BinFileReaderIterator {
-    type Item = Result<Tile, FileError>;
+    type Item = Result<Tile, IOError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if *self.0.pos() >= TILE_COUNT {
@@ -220,7 +209,7 @@ impl Iterator for BinFileReaderIterator {
 }
 
 impl IntoIterator for BinFileReader {
-    type Item = Result<Tile, FileError>;
+    type Item = Result<Tile, IOError>;
 
     type IntoIter = BinFileReaderIterator;
 
@@ -336,7 +325,7 @@ pub fn load_set_norm<P: AsRef<Path>>(dir: P, ident: &Option<&str>) -> Result<Til
 #[derive(Debug, From, Error)]
 pub enum TileWriteError {
     #[error(transparent)]
-    FileError(FileError),
+    FileError(IOError),
     #[from(ignore)]
     #[error("Already written tiles of kind {written_kind} and trying to now write tiles of kind {writing_kind}")]
     TileKindMismatchError {
@@ -350,12 +339,6 @@ pub enum TileWriteError {
     NotEnoughTiles(BinFileWriter)
 }
 
-impl TileWriteError {
-    pub fn file_error<P: AsRef<Path>>(file_path: P, file_action: FileAction, error: IOError) -> Self {
-        Self::FileError(FileError::new(file_action, file_path, error))
-    }
-}
-
 #[derive(Debug, Error, From)]
 pub enum FillRemainingSpaceError {
     #[error(transparent)]
@@ -367,16 +350,16 @@ pub enum FillRemainingSpaceError {
 
 #[derive(Debug)]
 pub struct BinFileWriter {
-    file: FileWithPath,
+    file: File,
     tile_count: usize,
     tile_kind: Option<TileKind>,
 }
 
 impl BinFileWriter {
 
-    pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, FileError> {
+    pub fn create<P: AsRef<Path>>(path: P) -> Result<Self, IOError> {
         Ok(Self {
-            file: file::create(path)?,
+            file: File::create(path)?,
             tile_count: 0,
             tile_kind: None
         })

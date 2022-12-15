@@ -346,6 +346,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-err"
+version = "3.0.0"
+source = "git+https://github.com/shellixyz/fs-err?branch=custom#93c372ea23304095d1f16d12d130bbc348d46512"
+dependencies = [
+ "close-err",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -428,6 +436,7 @@ dependencies = [
  "close-err",
  "derive_more",
  "env_logger",
+ "fs-err",
  "getset",
  "image",
  "itertools",

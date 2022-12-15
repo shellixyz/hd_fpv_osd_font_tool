@@ -160,7 +160,7 @@ pub fn load_symbols_from_dir<P: AsRef<Path>>(dir_path: P, max_symbols: usize) ->
                         SymbolLoadError::ImageReadError(image_error) => {
                             use crate::image::ReadError::*;
                             match image_error {
-                                OpenError(open_error) => match open_error.error().kind() {
+                                OpenError { file_path: _, error: image_error } => match image_error.kind() {
                                     std::io::ErrorKind::NotFound => None,
                                     _ => return Err(error.into()),
                                 },

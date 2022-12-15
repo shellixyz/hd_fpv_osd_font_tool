@@ -1,5 +1,8 @@
 
-use std::path::{Path, PathBuf};
+use std::{
+    // io::Error as IOError,
+    path::{Path, PathBuf},
+};
 
 use derive_more::From;
 use image::{GenericImageView, GenericImage, ImageBuffer, Rgba};
@@ -20,7 +23,6 @@ use crate::{
         WriteImageFile,
         WriteError as ImageWriteError,
     },
-    file::Error as FileError,
     osd::tile::InvalidDimensionsError,
 };
 
@@ -49,8 +51,11 @@ impl TileKind {
 
 #[derive(Debug, From, Error)]
 pub enum LoadError {
-    #[error(transparent)]
-    FileError(FileError),
+    // #[error("failed loading image `{file_path}`: {error}")]
+    // FileError {
+    //     file_path: PathBuf,
+    //     error: IOError
+    // },
     #[error(transparent)]
     ImageReadError(ImageReadError),
     #[from(ignore)]
@@ -62,6 +67,13 @@ pub enum LoadError {
 }
 
 impl LoadError {
+    // pub fn file_error<P: AsRef<Path>>(file_path: P, error: IOError) -> Self {
+    //     Self::FileError {
+    //         file_path: file_path.as_ref().to_path_buf(),
+    //         error
+    //     }
+    // }
+
     pub fn invalid_dimensions<P: AsRef<Path>>(file_path: P, dimensions: ImageDimensions) -> Self {
         Self::InvalidDimensionsError { file_path: file_path.as_ref().to_path_buf(), dimensions }
     }
@@ -86,8 +98,6 @@ pub fn load<P: AsRef<Path>>(path: P) -> Result<Vec<Tile>, LoadError> {
 
 #[derive(Debug, From, Error)]
 pub enum SaveError {
-    #[error(transparent)]
-    FileError(FileError),
     #[error(transparent)]
     TileKindError(TileKindError),
     #[error(transparent)]

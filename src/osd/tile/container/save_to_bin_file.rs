@@ -1,16 +1,18 @@
 
-use std::path::Path;
+use std::{
+    io::Error as IOError,
+    path::Path,
+};
 
 use derive_more::{Error, Display, From};
 use crate::{osd::{tile::{Tile, grid::Grid as TileGrid}, bin_file::{self, BinFileWriter}}, prelude::bin_file::FontPart, create_path::{CreatePathError, create_path}};
 use super::uniq_tile_kind::{TileKindError, UniqTileKind};
-use crate::file::Error as FileError;
 
 
 #[derive(Debug, Error, Display, From)]
 pub enum SaveTilesToBinFileError {
     CreatePathError(CreatePathError),
-    CreateError(FileError),
+    CreateError(IOError),
     TileKindError(TileKindError),
     TileWriteError(bin_file::TileWriteError),
     FillRemainingSpaceError(bin_file::FillRemainingSpaceError)

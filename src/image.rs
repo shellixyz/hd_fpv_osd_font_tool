@@ -1,19 +1,22 @@
 
-use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::io::Error as IOError;
 use std::ops::Deref;
 
-use derive_more::{Error, From};
+use derive_more::From;
+use thiserror::Error;
 use image::{DynamicImage, ImageError, EncodableLayout, ImageBuffer, PixelWithColorType};
 use image::io::Reader as ImageReader;
-
-use crate::file::{Error as FileError, Action as FileAction};
 
 
 #[derive(Debug, Error, From)]
 pub enum ReadError {
-    OpenError(FileError),
+    #[error("failed to open image file `{file_path}`: {error}")]
+    OpenError {
+        file_path: PathBuf,
+        error: IOError
+    },
+    #[error("failed to decode image file `{file_path}`: {error}")]
     DecodeError {
         file_path: PathBuf,
         error: ImageError
@@ -21,8 +24,11 @@ pub enum ReadError {
 }
 
 impl ReadError {
-    pub fn open_error<P: AsRef<Path>>(path: P, error: IOError) -> Self {
-        Self::OpenError(FileError::new(FileAction::Open, path, error))
+    pub fn open_error<P: AsRef<Path>>(file_path: P, error: IOError) -> Self {
+        Self::OpenError {
+            file_path: file_path.as_ref().to_path_buf(),
+            error,
+        }
     }
 
     pub fn decode_error<P: AsRef<Path>>(path: P, error: ImageError) -> Self {
@@ -30,22 +36,12 @@ impl ReadError {
     }
 }
 
-impl Display for ReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use ReadError::*;
-        match self {
-            OpenError(error) => error.fmt(f),
-            DecodeError { file_path, error } => write!(f, "failed decoding {}: #{error}", file_path.to_string_lossy()),
-        }
-    }
-}
-
 pub fn read_image_file<P: AsRef<Path>>(path: P) -> Result<DynamicImage, ReadError> {
-    let reader = ImageReader::open(&path) .map_err(|error| ReadError::open_error(&path, error))?;
+    let reader = ImageReader::open(&path).map_err(|error| ReadError::open_error(&path, error))?;
     reader.decode().map_err(|error| ReadError::decode_error(&path, error) )
 }
 
-#[derive(Debug, From, thiserror::Error)]
+#[derive(Debug, From, Error)]
 #[error("failed to write image {file_path}: {error}")]
 pub struct WriteError {
     file_path: PathBuf,

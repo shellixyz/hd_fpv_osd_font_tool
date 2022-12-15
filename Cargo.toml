@@ -22,6 +22,7 @@ clap_mangen = "0.2.5"
 close-err = "1.0.1"
 derive_more = "0.99.17"
 env_logger = "0.10.0"
+fs-err = { git = "https://github.com/shellixyz/fs-err", branch = "custom", version = "3.0.0", features = ["close"] }
 getset = "0.1.2"
 image = { version = "0.24.4", features = ["rgb"] }
 lazy_static = "1.4.0"

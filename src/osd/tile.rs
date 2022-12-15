@@ -2,7 +2,10 @@
 pub mod grid;
 pub mod container;
 
-use std::path::{Path, PathBuf};
+use std::{
+    io::Error as IOError,
+    path::{Path, PathBuf},
+};
 
 use derive_more::{Deref,DerefMut, From};
 use getset::{Getters, CopyGetters};
@@ -12,7 +15,6 @@ use thiserror::Error;
 
 use crate::{
     dimensions,
-    file::Error as FileError,
     image::{
         read_image_file,
         ReadError as ImageReadError,
@@ -106,8 +108,13 @@ impl TryFrom<Dimensions> for Kind {
 
 #[derive(Debug, From, Error)]
 pub enum LoadError {
+    #[error("failed loading tile from image `{file_path}`: {error}")]
+    FileError {
+        file_path: PathBuf,
+        error: IOError
+    },
     #[error(transparent)]
-    FileError(FileError),
+    ReadError(IOError),
     #[error(transparent)]
     ImageReadError(ImageReadError),
     #[error("invalid tile image size in file {file_path}: {dimensions}")]
@@ -227,8 +234,8 @@ mod tests {
     fn load_inexistent() {
         let result = Tile::load_image_file(test_file_path("inexistent.png"));
         match result {
-            Err(LoadError::ImageReadError(ImageReadError::OpenError(file_error))) => {
-                assert!(file_error.error().kind() == IOErrorKind::NotFound)
+            Err(LoadError::ImageReadError(ImageReadError::OpenError { file_path: _, error })) => {
+                assert!(error.kind() == IOErrorKind::NotFound)
             },
             Err(error) => panic!("got the wrong error: {error:?}"),
             Ok(_) => panic!("did not get an error !"),
