@@ -26,7 +26,7 @@ pub enum Commands {
     ///
     /// Valid collection specifications are:{n}
     ///     * djibin:path       raw RGBA file{n}
-    ///     * avatar:path       Avatar tile collection image file
+    ///     * avatar:path       Avatar tile collection image file{n}
     ///     * tilegrid:path     grid of tiles image{n}
     ///     * tiledir:path      directory with each tile in a separate file{n}
     ///     * symdir:path       directory with each symbol in a separate file{n}
