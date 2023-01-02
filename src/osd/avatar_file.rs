@@ -102,20 +102,22 @@ pub enum SaveError {
     TileKindError(TileKindError),
     #[error(transparent)]
     ImageWriteError(ImageWriteError),
-    #[error("wrong tile collection size, an Avatar file must contain exactly 256 tiles: {0}")]
+    #[error("not enough tiles, Avatar tile collection must contain 256 tiles")]
     WrongCollectionSize(usize),
 }
 
 pub fn save<P: AsRef<Path>>(tiles: &[Tile], path: P) -> Result<(), SaveError> {
-    if tiles.len() != TILE_COUNT {
+    if tiles.len() < TILE_COUNT {
         return Err(SaveError::WrongCollectionSize(tiles.len()));
+    }
+    if tiles.len() > TILE_COUNT {
+        log::warn!("Avatar font files can only contain 256 tiles but the source collection contains {}", tiles.len());
     }
     let tile_kind = tiles.tile_kind()?;
     let img_dim = tile_kind.avatar_image_dimensions();
     let mut image = Image::new(img_dim.width(), img_dim.height());
-    for (tile_index, tile) in tiles.iter().enumerate() {
+    for (tile_index, tile) in tiles[0..TILE_COUNT].iter().enumerate() {
         let tile_y = tile_index as u32 * tile_kind.dimensions().height;
-        // let image_tile_view = image.sub_image(0, tile_y, tile_dimensions.width, tile_dimensions.height);
         image.copy_from(tile.image(), 0, tile_y).unwrap();
     }
     image.write_image_file(path)?;
