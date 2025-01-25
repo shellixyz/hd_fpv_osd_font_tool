@@ -15,26 +15,26 @@ exclude = ["*.webm", "*.osd", "*.mp4", "*.bin"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.66"
-array-macro = "2.1.5"
-clap = { version = "4.0.18", features = ["derive"] }
-clap_mangen = "0.2.5"
-close-err = "1.0.1"
-derive_more = "0.99.17"
-env_logger = "0.10.0"
+anyhow = "1.0.95"
+array-macro = "2.1.8"
+clap = { version = "4.5.27", features = ["derive"] }
+clap_mangen = "0.2.26"
+close-err = "1.0.2"
+derive_more = { version = "1.0.0", features = ["from", "add", "mul", "display", "deref", "deref_mut", "error", "into_iterator", "index"] }
+env_logger = "0.10.2"
 fs-err = { git = "https://github.com/shellixyz/fs-err", branch = "custom", version = "3.0.0", features = ["close"] }
-getset = "0.1.2"
-image = { version = "0.24.4", features = ["rgb"] }
-lazy_static = "1.4.0"
+getset = "0.1.4"
+image = { version = "0.24.9", features = ["rgb"] }
+lazy_static = "1.5.0"
 log = "0.4.17"
 parse_int = "0.6.0"
-paste = "1.0.9"
-regex = "1.7.0"
-serde = "1.0.147"
-serde_yaml = "0.9.14"
-strum = { version = "0.24.1", features = ["derive"] }
+paste = "1.0.15"
+regex = "1.11.1"
+serde = "1.0.217"
+serde_yaml = "0.9.33"
+strum = { version = "0.26.3", features = ["derive"] }
 tap = "1.0.1"
-thiserror = "1.0.37"
+thiserror = "2.0.11"
 
 [dev-dependencies]
 itertools = "0.10.5"
