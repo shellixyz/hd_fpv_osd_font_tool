@@ -8,6 +8,7 @@ pub struct SymbolTilesIter<'a> {
 }
 
 impl<'a> SymbolTilesIter<'a> {
+	#[must_use]
 	pub fn new(symbols: &'a [Symbol]) -> Self {
 		Self {
 			symbols,

@@ -46,7 +46,7 @@ fn argument_norm_args(arg: &str) -> Result<(&str, Option<&str>), InvalidConvertS
 		return Err(InvalidConvertSetArgError::BinSetInvalidArguments("too few arguments"));
 	}
 	let dir = args[0];
-	let ident = args.get(1).cloned();
+	let ident = args.get(1).copied();
 	Ok((dir, ident))
 }
 
@@ -113,19 +113,19 @@ pub enum ConvertSetError {
 }
 
 fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &ConvertOptions) -> anyhow::Result<()> {
-	use ConvertSetArg::*;
+	use ConvertSetArg as CSA;
 	match to_arg {
-		BinFileSet {
+		CSA::BinFileSet {
 			sd_path,
 			sd_2_path,
 			hd_path,
 			hd_2_path,
 		} => tile_set.save_to_bin_files(sd_path, sd_2_path, hd_path, hd_2_path)?,
-		BinFileSetNorm { dir, ident } => tile_set.save_to_bin_files_norm(dir, ident)?,
-		TileSetGrids { sd_path, hd_path } => tile_set.save_to_grids(sd_path, hd_path)?,
-		TileSetGridsNorm { dir, ident } => tile_set.save_to_grids_norm(dir, ident)?,
-		TileSetDir(dir) => tile_set.save_tiles_to_dir(dir)?,
-		SymbolSetDir(dir) => {
+		CSA::BinFileSetNorm { dir, ident } => tile_set.save_to_bin_files_norm(dir, *ident)?,
+		CSA::TileSetGrids { sd_path, hd_path } => tile_set.save_to_grids(sd_path, hd_path)?,
+		CSA::TileSetGridsNorm { dir, ident } => tile_set.save_to_grids_norm(dir, *ident)?,
+		CSA::TileSetDir(dir) => tile_set.save_tiles_to_dir(dir)?,
+		CSA::SymbolSetDir(dir) => {
 			let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
 			tile_set.into_symbol_set(&sym_specs).unwrap().save_to_dir(dir)?;
 		},
@@ -133,15 +133,16 @@ fn convert_tile_set(tile_set: TileSet, to_arg: &ConvertSetArg, options: &Convert
 	Ok(())
 }
 
-pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> anyhow::Result<()> {
+pub fn convert_set_command(from: &str, to: &str, options: &ConvertOptions) -> anyhow::Result<()> {
+	use ConvertSetArg as CSA;
+
 	let from_arg = identify_convert_set_arg(from).map_err(ConvertSetError::FromArg)?;
 	let to_arg = identify_convert_set_arg(to).map_err(ConvertSetError::ToArg)?;
-	log::info!("converting {} -> {}", from, to);
+	log::info!("converting {from} -> {to}");
 
-	use ConvertSetArg::*;
 	match (&from_arg, &to_arg) {
 		(
-			BinFileSet {
+			CSA::BinFileSet {
 				sd_path,
 				sd_2_path,
 				hd_path,
@@ -150,32 +151,32 @@ pub fn convert_set_command(from: &str, to: &str, options: ConvertOptions) -> any
 			to_arg,
 		) => {
 			let tile_set = bin_file::load_set(sd_path, sd_2_path, hd_path, hd_2_path)?;
-			convert_tile_set(tile_set, to_arg, &options)
+			convert_tile_set(tile_set, to_arg, options)
 		},
 
-		(BinFileSetNorm { dir, ident }, to_arg) => {
-			let tile_set = bin_file::load_set_norm(dir, ident)?;
-			convert_tile_set(tile_set, to_arg, &options)
+		(CSA::BinFileSetNorm { dir, ident }, to_arg) => {
+			let tile_set = bin_file::load_set_norm(dir, *ident)?;
+			convert_tile_set(tile_set, to_arg, options)
 		},
 
-		(TileSetGrids { sd_path, hd_path }, to_arg) => {
+		(CSA::TileSetGrids { sd_path, hd_path }, to_arg) => {
 			let tile_grid_set = TileGridSet::load_from_images(sd_path, hd_path)?;
-			convert_tile_set(tile_grid_set.into_tile_set(), to_arg, &options)
+			convert_tile_set(tile_grid_set.into_tile_set(), to_arg, options)
 		},
 
-		(TileSetGridsNorm { dir, ident }, to_arg) => {
-			let tile_grid_set = TileGridSet::load_from_images_norm(dir, ident)?;
-			convert_tile_set(tile_grid_set.into_tile_set(), to_arg, &options)
+		(CSA::TileSetGridsNorm { dir, ident }, to_arg) => {
+			let tile_grid_set = TileGridSet::load_from_images_norm(dir, *ident)?;
+			convert_tile_set(tile_grid_set.into_tile_set(), to_arg, options)
 		},
 
-		(TileSetDir(dir), to_arg) => {
+		(CSA::TileSetDir(dir), to_arg) => {
 			let tile_set = TileSet::load_from_dir(dir, 512)?;
-			convert_tile_set(tile_set, to_arg, &options)
+			convert_tile_set(tile_set, to_arg, options)
 		},
 
-		(SymbolSetDir(dir), to_arg) => {
+		(CSA::SymbolSetDir(dir), to_arg) => {
 			let symbol_set = SymbolSet::load_from_dir(dir, 512)?;
-			convert_tile_set(symbol_set.into(), to_arg, &options)
+			convert_tile_set(symbol_set.into(), to_arg, options)
 		},
 	}
 }
@@ -204,7 +205,7 @@ mod tests {
 			"symsetdir",
 		];
 
-		let from_djibinsetnorm = TileSet::load_bin_files_norm("test_files/djibinsetnorm", &None).unwrap();
+		let from_djibinsetnorm = TileSet::load_bin_files_norm("test_files/djibinsetnorm", None).unwrap();
 		let temp_dir = TempDir::new().unwrap();
 
 		for format in formats {
@@ -224,7 +225,7 @@ mod tests {
 			let options = crate::ConvertOptions {
 				symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf(),
 			};
-			convert_set_command(&from_arg, &to_arg, options).unwrap();
+			convert_set_command(&from_arg, &to_arg, &options).unwrap();
 		}
 	}
 }

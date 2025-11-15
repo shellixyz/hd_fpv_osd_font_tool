@@ -17,18 +17,18 @@ impl Error for InvalidConvertArgError {}
 
 impl Display for InvalidConvertArgError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		use InvalidConvertArgError::*;
+		use InvalidConvertArgError as ICAError;
 		match self {
-			InvalidPrefix(prefix) => write!(f, "invalid prefix: {}", prefix),
-			NoPrefix => f.write_str("no prefix"),
-			InvalidImageFileExtension {
+			ICAError::InvalidPrefix(prefix) => write!(f, "invalid prefix: {prefix}"),
+			ICAError::NoPrefix => f.write_str("no prefix"),
+			ICAError::InvalidImageFileExtension {
 				path,
 				extension: Some(extension),
-			} => write!(f, "invalid image file extension `{}`: {}", extension, path),
-			InvalidImageFileExtension { path, extension: None } => {
-				write!(f, "image path has no file extension: {}", path)
+			} => write!(f, "invalid image file extension `{extension}`: {path}"),
+			ICAError::InvalidImageFileExtension { path, extension: None } => {
+				write!(f, "image path has no file extension: {path}")
 			},
-			InvalidPath(path) => write!(f, "invalid path: {}", path),
+			ICAError::InvalidPath(path) => write!(f, "invalid path: {path}"),
 		}
 	}
 }
@@ -84,70 +84,71 @@ pub enum ConvertError {
 	ToArg(InvalidConvertArgError),
 }
 
-fn convert_tiles(tiles: Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
-	use ConvertArg::*;
+fn convert_tiles(tiles: &Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
+	use ConvertArg as CA;
 	match to_arg {
-		TileGrid(to_path) => {
+		CA::TileGrid(to_path) => {
 			check_arg_image_file_extension(to_path).map_err(ConvertError::ToArg)?;
-			tiles.save_to_grid_image(to_path)?
+			tiles.save_to_grid_image(to_path)?;
 		},
-		TileDir(to_path) => tiles.save_tiles_to_dir(to_path)?,
-		SymbolDir(to_path) => {
+		CA::TileDir(to_path) => tiles.save_tiles_to_dir(to_path)?,
+		CA::SymbolDir(to_path) => {
 			let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
 			tiles.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
 		},
-		BinFile(to_path) => tiles.save_to_bin_file(to_path)?,
-		AvatarFile(to_path) => tiles.save_to_avatar_file(to_path)?,
+		CA::BinFile(to_path) => tiles.save_to_bin_file(to_path)?,
+		CA::AvatarFile(to_path) => tiles.save_to_avatar_file(to_path)?,
 	}
 	Ok(())
 }
 
-fn convert_tile_grid(tile_grid: TileGrid, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
-	use ConvertArg::*;
+fn convert_tile_grid(tile_grid: &TileGrid, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
+	use ConvertArg as CA;
 	match to_arg {
-		BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path)?,
-		TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path)?,
-		SymbolDir(to_path) => {
+		CA::BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path)?,
+		CA::TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path)?,
+		CA::SymbolDir(to_path) => {
 			let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
 			tile_grid.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
 		},
-		TileGrid(to_path) => tile_grid.save_image(to_path)?,
-		AvatarFile(to_path) => tile_grid.save_tiles_to_avatar_file(to_path)?,
+		CA::TileGrid(to_path) => tile_grid.save_image(to_path)?,
+		CA::AvatarFile(to_path) => tile_grid.save_tiles_to_avatar_file(to_path)?,
 	}
 	Ok(())
 }
 
-pub fn convert_command(from: &str, to: &str, options: ConvertOptions) -> anyhow::Result<()> {
+pub fn convert_command(from: &str, to: &str, options: &ConvertOptions) -> anyhow::Result<()> {
+	use ConvertArg as CA;
+
 	let from_arg = identify_convert_arg(from).map_err(ConvertError::FromArg)?;
 	let to_arg = identify_convert_arg(to).map_err(ConvertError::ToArg)?;
-	log::info!("converting {} -> {}", from, to);
+	log::info!("converting {from} -> {to}");
 
-	use ConvertArg::*;
 	match (&from_arg, &to_arg) {
-		(BinFile(from_path), to_arg) => {
+		(CA::BinFile(from_path), to_arg) => {
 			let tiles = bin_file::load(from_path)?;
-			convert_tiles(tiles, to_arg, &options)?;
+			convert_tiles(&tiles, to_arg, options)?;
 		},
 
-		(TileGrid(from_path), to_arg) => {
+		(CA::TileGrid(from_path), to_arg) => {
 			check_arg_image_file_extension(from_path).map_err(ConvertError::FromArg)?;
 			let tile_grid = crate::TileGrid::load_from_image(from_path)?;
-			convert_tile_grid(tile_grid, to_arg, &options)?;
+			convert_tile_grid(&tile_grid, to_arg, options)?;
 		},
 
-		(TileDir(from_path), to_arg) => {
+		(CA::TileDir(from_path), to_arg) => {
 			let tiles = load_tiles_from_dir(from_path, 512)?;
-			convert_tiles(tiles, to_arg, &options)?;
+			convert_tiles(&tiles, to_arg, options)?;
 		},
 
-		(SymbolDir(from_path), to_arg) => {
+		(CA::SymbolDir(from_path), to_arg) => {
 			let tiles = load_symbols_from_dir(from_path, 512)?.into_tiles_vec();
-			convert_tiles(tiles, to_arg, &options)?;
+			convert_tiles(&tiles, to_arg, options)?;
 		},
 
-		(AvatarFile(from_path), to_arg) => {
+		(CA::AvatarFile(from_path), to_arg) => {
 			let tiles = load_avatar_file(from_path)?;
-			convert_tiles(tiles, to_arg, &options)?;
+			convert_tiles(&tiles, to_arg, options)?;
 		},
 	}
 
@@ -190,7 +191,7 @@ mod tests {
 
 		for tile_kind in tile::Kind::iter() {
 			let from_djibin =
-				bin_file::normalized_file_path("test_files/djibinsetnorm", tile_kind, &None, FontPart::Base);
+				bin_file::normalized_file_path("test_files/djibinsetnorm", tile_kind, None, FontPart::Base);
 			let from_arg = format!("djibin:{}", from_djibin.to_str().unwrap());
 			for to_format in formats {
 				println!("testing djibin ({tile_kind}) -> {to_format}");
@@ -205,7 +206,7 @@ mod tests {
 				let options = crate::ConvertOptions {
 					symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf(),
 				};
-				convert_command(&from_arg, &to_arg, options).unwrap();
+				convert_command(&from_arg, &to_arg, &options).unwrap();
 			}
 		}
 
@@ -235,14 +236,14 @@ mod tests {
 				let options = crate::ConvertOptions {
 					symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf(),
 				};
-				convert_command(&from_arg, &to_arg, options).unwrap();
+				convert_command(&from_arg, &to_arg, &options).unwrap();
 			}
 		}
 
 		for tile_kind in tile::Kind::iter() {
 			// DJI BIN
 			let original_djibin =
-				bin_file::normalized_file_path("test_files/djibinsetnorm", tile_kind, &None, FontPart::Base);
+				bin_file::normalized_file_path("test_files/djibinsetnorm", tile_kind, None, FontPart::Base);
 
 			let generated_files = ["avatar", "tilegrid", "tiledir", "symdir"]
 				.map(|format| temp_dir.child(format!("djibin_{tile_kind}_from_{format}.bin")));
