@@ -6,7 +6,7 @@ use std::{io::Write, process::exit};
 
 use anyhow::anyhow;
 use clap::Parser;
-use env_logger::fmt::Color;
+use env_logger::fmt::style;
 use hd_fpv_osd_font_tool::prelude::*;
 
 mod cli;
@@ -43,10 +43,11 @@ fn main() {
 	env_logger::builder()
 		.format(|buf, record| {
 			let level_style = buf.default_level_style(record.level());
-			write!(buf, "{:<5}", level_style.value(record.level()))?;
-			let mut style = buf.style();
-			style.set_color(Color::White).set_bold(true);
-			write!(buf, "{}", style.value(" > "))?;
+			write!(buf, "{level_style}{:<5}{level_style:#}", record.level())?;
+			let separator_style = style::AnsiColor::White
+				.on_default()
+				.effects(style::Effects::BOLD);
+			write!(buf, "{separator_style} > {separator_style:#}")?;
 			writeln!(buf, "{}", record.args())
 		})
 		.parse_filters(cli.log_level().to_string().as_str())

@@ -159,7 +159,7 @@ pub fn convert_command(from: &str, to: &str, options: &ConvertOptions) -> anyhow
 mod tests {
 
 	use std::path::{Path, PathBuf};
-	use std::{fs, io};
+	use std::{fs, io::Read};
 
 	use hd_fpv_osd_font_tool::osd::tile;
 	use hd_fpv_osd_font_tool::prelude::bin_file::{self, FontPart};
@@ -176,7 +176,14 @@ mod tests {
 			.map(|file_path| {
 				let mut hasher = Sha256::new();
 				let mut file = fs::File::open(file_path).unwrap();
-				io::copy(&mut file, &mut hasher).unwrap();
+				let mut buffer = [0; 8192];
+				loop {
+					let bytes_read = file.read(&mut buffer).unwrap();
+					if bytes_read == 0 {
+						break;
+					}
+					hasher.update(&buffer[..bytes_read]);
+				}
 				hasher.finalize().to_vec()
 			})
 			.tuple_windows()

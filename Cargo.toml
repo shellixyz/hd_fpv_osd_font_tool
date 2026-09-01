@@ -5,7 +5,7 @@ version = "1.1.0"
 edition = "2021"
 license = "GPL-2.0-only"
 authors = ["Michel Pastor <shellixyz@gmail.com>"]
-rust-version = "1.70"
+rust-version = "1.88"
 repository = "https://github.com/shellixyz/hd_fpv_osd_font_tool"
 homepage = "https://github.com/shellixyz/hd_fpv_osd_font_tool"
 keywords = ["dji", "fpv", "font", "osd"]
@@ -15,28 +15,28 @@ exclude = ["*.webm", "*.osd", "*.mp4", "*.bin"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.100"
+anyhow = "1.0.104"
 array-macro = "2.1.8"
-clap = { version = "4.5.50", features = ["derive"] }
-clap_mangen = "0.2.31"
+clap = { version = "4.6.6", features = ["derive"] }
+clap_mangen = "0.3.3"
 close-err = "1.0.2"
-derive_more = { version = "2.0.1", features = ["from", "add", "mul", "display", "deref", "deref_mut", "error", "into_iterator", "index"] }
-env_logger = "0.10.2"
+derive_more = { version = "2.1.1", features = ["from", "add", "mul", "display", "deref", "deref_mut", "error", "into_iterator", "index"] }
+env_logger = "0.11.11"
 fs-err = { git = "https://github.com/shellixyz/fs-err.git", branch = "custom", version = "3.0.0", features = ["close"] }
 getset = "0.1.6"
-image = { version = "0.24.9", features = ["rgb"] }
+image = "0.25.10"
 lazy_static = "1.5.0"
-log = "0.4.28"
+log = "0.4.34"
 parse_int = "0.9.0"
 paste = "1.0.15"
-regex = "1.12.2"
-serde = "1.0.228"
+regex = "1.13.1"
+serde = "1.0.229"
 serde_yaml = "0.9.34-deprecated"
-strum = { version = "0.26.3", features = ["derive"] }
+strum = { version = "0.28.0", features = ["derive"] }
 tap = "1.0.1"
-thiserror = "2.0.17"
+thiserror = "2.0.20"
 
 [dev-dependencies]
-itertools = "0.14.0"
-sha2 = "0.10.9"
-temp-dir = "0.1.16"
+itertools = "0.15.0"
+sha2 = "0.11.0"
+temp-dir = "0.2.0"

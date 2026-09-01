@@ -5,8 +5,7 @@ use std::ops::Deref;
 
 use derive_more::From;
 use thiserror::Error;
-use image::{DynamicImage, ImageError, EncodableLayout, ImageBuffer, PixelWithColorType};
-use image::io::Reader as ImageReader;
+use image::{DynamicImage, EncodableLayout, ImageBuffer, ImageError, ImageReader, PixelWithColorType};
 
 
 #[derive(Debug, Error, From)]
