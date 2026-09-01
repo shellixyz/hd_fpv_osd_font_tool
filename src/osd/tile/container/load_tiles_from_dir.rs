@@ -67,11 +67,10 @@ pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<
 			},
 
 			// we have already loaded a tile before, check that the new tile kind is matching what had recorded
-			(Some(tile), Some(tile_kind)) => {
-				if tile.kind() != *tile_kind {
+			(Some(tile), Some(tile_kind))
+				if tile.kind() != *tile_kind => {
 					return Err(LoadTilesFromDirError::kind_mismatch(&path));
-				}
-			},
+				},
 
 			_ => {},
 		}

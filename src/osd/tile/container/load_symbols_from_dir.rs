@@ -209,11 +209,10 @@ pub fn load_symbols_from_dir<P: AsRef<Path>>(
 			},
 
 			// we have already loaded a tile before, check that the new tile kind is matching what had recorded
-			(Some(symbol), Some(tile_kind)) => {
-				if symbol.tile_kind() != *tile_kind {
+			(Some(symbol), Some(tile_kind))
+				if symbol.tile_kind() != *tile_kind => {
 					return Err(LoadSymbolsFromDirError::kind_mismatch(&dir_path));
-				}
-			},
+				},
 
 			_ => {},
 		}
