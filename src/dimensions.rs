@@ -1,11 +1,10 @@
 
-use std::{ops::Mul, fmt::Display, str::FromStr};
+use std::{ops::Mul, fmt::Display, str::FromStr, sync::LazyLock};
 
 use derive_more::{From, Sub, Div};
 use getset::CopyGetters;
 use regex::Regex;
 use thiserror::Error;
-use lazy_static::lazy_static;
 
 
 #[derive(CopyGetters, PartialEq, Eq, PartialOrd, Ord, From, Debug, Clone, Copy, Div, Sub)]
@@ -63,7 +62,8 @@ where
     type Err = FormatError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        lazy_static! { static ref ORIGIN_RE: Regex = Regex::new(r"\A(?P<width>\d+)x(?P<height>\d+)\z").unwrap(); }
+        static ORIGIN_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"\A(?P<width>\d+)x(?P<height>\d+)\z").unwrap());
         match ORIGIN_RE.captures(s) {
             Some(captures) => {
                 let width: T = captures.name("width").unwrap().as_str().parse().map_err(|_| FormatError(s.to_owned()))?;

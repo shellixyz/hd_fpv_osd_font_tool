@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::fs::ReadDir;
 use std::io::Error as IOError;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
-use lazy_static::lazy_static;
 use regex::Regex;
 use thiserror::Error;
 
@@ -84,17 +84,15 @@ impl SymbolDirFileType {
 }
 
 fn identify_file_name<P: AsRef<Path>>(path: P) -> Option<SymbolDirFileType> {
-	lazy_static! {
-		static ref FILE_NAME_RE: Regex = Regex::new(r"\A(?P<start_index>\d{3})(?:-(?P<end_index>\d{3}))?\.").unwrap();
-	}
+	static FILE_NAME_RE: LazyLock<Regex> =
+		LazyLock::new(|| Regex::new(r"\A(?P<start_index>\d{3})(?:-(?P<end_index>\d{3}))?\.").unwrap());
 
 	if let Some(captures) = FILE_NAME_RE.captures(
 		path.as_ref()
 			.file_name()
 			.unwrap()
 			.to_string_lossy()
-			.to_string()
-			.as_str(),
+			.as_ref(),
 	) {
 		let start_index = captures
 			.name("start_index")

@@ -259,7 +259,7 @@ mod tests {
 		let result = Tile::load_image_file(test_file_path("inexistent.png"));
 		match result {
 			Err(LoadError::ImageReadError(ImageReadError::OpenError { file_path: _, error })) => {
-				assert!(error.kind() == IOErrorKind::NotFound);
+				assert_eq!(error.kind(), IOErrorKind::NotFound);
 			},
 			Err(error) => panic!("got the wrong error: {error:?}"),
 			Ok(_) => panic!("did not get an error !"),

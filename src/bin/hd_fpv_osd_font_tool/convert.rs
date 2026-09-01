@@ -256,7 +256,7 @@ mod tests {
 				.map(|format| temp_dir.child(format!("djibin_{tile_kind}_from_{format}.bin")));
 			let files = [original_djibin]
 				.into_iter()
-				.chain(generated_files.into_iter())
+				.chain(generated_files)
 				.collect::<Vec<PathBuf>>();
 			assert!(files_are_identical(&files));
 

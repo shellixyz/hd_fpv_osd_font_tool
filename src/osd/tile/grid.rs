@@ -81,8 +81,7 @@ impl Grid {
 			let expected_width = (WIDTH as u32 - 1) * SEPARATOR_THICKNESS + WIDTH as u32 * tile_kind.dimensions().width;
 			if image_dimensions.width == expected_width {
 				if (image_dimensions.height - tile_kind.dimensions().height)
-					% (tile_kind.dimensions().height + SEPARATOR_THICKNESS)
-					== 0
+					.is_multiple_of(tile_kind.dimensions().height + SEPARATOR_THICKNESS)
 				{
 					let grid_height = (image_dimensions.height - tile_kind.dimensions().height)
 						/ (tile_kind.dimensions().height + SEPARATOR_THICKNESS)
@@ -155,7 +154,7 @@ impl Grid {
 	#[must_use]
 	pub fn height(&self) -> usize {
 		let h_full_width = self.0.len() / WIDTH;
-		if self.0.len() % WIDTH == 0 {
+		if self.0.len().is_multiple_of(WIDTH) {
 			h_full_width
 		} else {
 			h_full_width + 1

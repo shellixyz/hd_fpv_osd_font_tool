@@ -3,12 +3,12 @@ use std::{
 	io::Error as IOError,
 	ops::Range,
 	path::{Path, PathBuf},
+	sync::LazyLock,
 };
 
 use derive_more::{Deref, From};
 use fs_err::File;
 use getset::CopyGetters;
-use lazy_static::lazy_static;
 use parse_int::parse;
 use regex::Regex;
 use thiserror::Error;
@@ -49,12 +49,11 @@ impl Specs {
 	/// # Errors
 	/// Returns `LoadSpecsFileError` if loading or parsing fails
 	pub fn load_file<P: AsRef<Path>>(path: P) -> Result<Self, LoadSpecsFileError> {
+		static SPEC_RE: LazyLock<Regex> =
+			LazyLock::new(|| Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap());
+
 		let file_content: HashMap<String, String> = serde_yaml::from_reader(File::open(&path)?)
 			.map_err(|error| LoadSpecsFileError::file_structure(&path, error))?;
-		lazy_static! {
-			static ref SPEC_RE: Regex =
-				Regex::new(r"\A(?P<start_tile_index>0x[\da-zA-Z]+|\d+):(?P<span>\d+)\z").unwrap();
-		}
 		let mut spec_vec = Vec::with_capacity(file_content.len());
 		for (symbol_name, spec) in file_content {
 			match SPEC_RE.captures(&spec) {
