@@ -1,7 +1,9 @@
 use std::path::Path;
 
-use crate::osd::tile::grid::SaveImageError as SaveGridImageError;
-use crate::{osd::tile::Tile, prelude::IntoTileGrid};
+use crate::{
+	osd::tile::{Tile, grid::SaveImageError as SaveGridImageError},
+	prelude::IntoTileGrid,
+};
 
 pub trait SaveToGridImage {
 	/// Saves tiles to a grid image file

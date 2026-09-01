@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use super::Tile;
-
 use crate::osd::{
 	avatar_file::{self, SaveError as AvatarFileSaveError},
 	tile::grid::Grid as TileGrid,

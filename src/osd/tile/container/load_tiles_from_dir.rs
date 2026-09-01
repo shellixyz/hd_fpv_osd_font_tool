@@ -2,8 +2,10 @@ use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
-use crate::image::ReadError as ImageReadError;
-use crate::osd::tile::{LoadError as TileLoadError, Tile};
+use crate::{
+	image::ReadError as ImageReadError,
+	osd::tile::{LoadError as TileLoadError, Tile},
+};
 
 #[derive(Debug, Error)]
 pub enum LoadTilesFromDirError {
@@ -67,10 +69,9 @@ pub fn load_tiles_from_dir<P: AsRef<Path>>(path: P, max_tiles: usize) -> Result<
 			},
 
 			// we have already loaded a tile before, check that the new tile kind is matching what had recorded
-			(Some(tile), Some(tile_kind))
-				if tile.kind() != *tile_kind => {
-					return Err(LoadTilesFromDirError::kind_mismatch(&path));
-				},
+			(Some(tile), Some(tile_kind)) if tile.kind() != *tile_kind => {
+				return Err(LoadTilesFromDirError::kind_mismatch(&path));
+			},
 
 			_ => {},
 		}

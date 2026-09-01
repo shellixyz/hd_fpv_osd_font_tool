@@ -1,5 +1,7 @@
 use std::{io::Error as IOError, path::Path};
 
+use derive_more::{Display, Error, From};
+
 use super::uniq_tile_kind::{TileKindError, UniqTileKind};
 use crate::{
 	create_path::{CreatePathError, create_path},
@@ -9,7 +11,6 @@ use crate::{
 	},
 	prelude::bin_file::FontPart,
 };
-use derive_more::{Display, Error, From};
 
 #[derive(Debug, Error, Display, From)]
 pub enum SaveTilesToBinFileError {
@@ -94,7 +95,8 @@ impl SaveTilesToBinFile for TileGrid {
 }
 
 pub trait SaveToBinFiles {
-	/// Saves tiles to two .bin OSD font files (one for the first 256 tiles, one for the last 256 tiles)
+	/// Saves tiles to two .bin OSD font files (one for the first 256 tiles, one for the last 256
+	/// tiles)
 	///
 	/// # Errors
 	/// Returns `SaveTilesToBinFileError` if saving fails

@@ -1,12 +1,11 @@
 use std::cmp::Ordering;
 
 use derive_more::Display;
+use hd_fpv_osd_font_tool::prelude::*;
 use thiserror::Error;
 
-use crate::ConvertOptions;
-
 use super::convert::InvalidConvertArgError;
-use hd_fpv_osd_font_tool::prelude::*;
+use crate::ConvertOptions;
 
 enum ConvertSetArg<'a> {
 	BinFileSet {
@@ -190,9 +189,8 @@ mod tests {
 	use itertools::Itertools;
 	use temp_dir::TempDir;
 
-	use crate::convert_set::convert_set_command;
-
 	use super::{convert_tile_set, identify_convert_set_arg};
+	use crate::convert_set::convert_set_command;
 
 	#[test]
 	fn convert_set_all() {

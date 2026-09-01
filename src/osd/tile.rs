@@ -12,12 +12,11 @@ use image::{GenericImage, GenericImageView, ImageBuffer, Rgba};
 use strum::{Display, EnumIter, IntoEnumIterator};
 use thiserror::Error;
 
+use super::bin_file::BinFileReader;
 use crate::{
 	dimensions,
 	image::{ReadError as ImageReadError, read_image_file},
 };
-
-use super::bin_file::BinFileReader;
 
 pub type Dimensions = dimensions::Dimensions<u32>;
 
@@ -219,14 +218,15 @@ impl TryFrom<&mut BinFileReader> for Tile {
 
 #[cfg(test)]
 mod tests {
-	use std::io::ErrorKind as IOErrorKind;
-	use std::path::{Path, PathBuf};
+	use std::{
+		io::ErrorKind as IOErrorKind,
+		path::{Path, PathBuf},
+	};
 
 	use strum::IntoEnumIterator;
 
-	use crate::image::ReadError as ImageReadError;
-
 	use super::{Dimensions, InvalidSizeError, Kind, LoadError, Tile};
+	use crate::image::ReadError as ImageReadError;
 
 	const TEST_FILES_DIR: &str = "test_files";
 

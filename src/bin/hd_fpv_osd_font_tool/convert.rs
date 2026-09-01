@@ -158,11 +158,16 @@ pub fn convert_command(from: &str, to: &str, options: &ConvertOptions) -> anyhow
 #[cfg(test)]
 mod tests {
 
-	use std::path::{Path, PathBuf};
-	use std::{fs, io::Read};
+	use std::{
+		fs,
+		io::Read,
+		path::{Path, PathBuf},
+	};
 
-	use hd_fpv_osd_font_tool::osd::tile;
-	use hd_fpv_osd_font_tool::prelude::bin_file::{self, FontPart};
+	use hd_fpv_osd_font_tool::{
+		osd::tile,
+		prelude::bin_file::{self, FontPart},
+	};
 	use itertools::Itertools;
 	use sha2::{Digest, Sha256};
 	use strum::IntoEnumIterator;

@@ -1,16 +1,21 @@
-use std::ops::Index;
-use std::path::Path;
+use std::{ops::Index, path::Path};
 
 use derive_more::{Display, Error, From};
 use getset::Getters;
 use strum::IntoEnumIterator;
 
 use super::Symbol;
-use crate::osd::tile::Kind as TileKind;
-use crate::osd::tile::container::load_symbols_from_dir::{LoadSymbolsFromDirError, load_symbols_from_dir};
-use crate::osd::tile::container::save_symbols_to_dir::SaveSymbolsToDirError;
-use crate::osd::tile::container::uniq_tile_kind::{TileKindError, UniqTileKind};
-use crate::prelude::SaveSymbolsToDir;
+use crate::{
+	osd::tile::{
+		Kind as TileKind,
+		container::{
+			load_symbols_from_dir::{LoadSymbolsFromDirError, load_symbols_from_dir},
+			save_symbols_to_dir::SaveSymbolsToDirError,
+			uniq_tile_kind::{TileKindError, UniqTileKind},
+		},
+	},
+	prelude::SaveSymbolsToDir,
+};
 
 #[derive(Debug, Error, Display, From)]
 pub enum LoadFromDirError {

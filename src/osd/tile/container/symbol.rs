@@ -1,17 +1,19 @@
 pub mod set;
 pub mod spec;
 
+use std::{fmt::Display, path::Path};
+
 use derive_more::{Error, From, Index};
 use getset::CopyGetters;
 use image::{GenericImage, GenericImageView, ImageBuffer, Rgba};
-use std::fmt::Display;
-use std::path::Path;
 
-use crate::dimensions;
-use crate::image::{ReadError as ImageReadError, read_image_file};
-use crate::osd::tile::{
-	InvalidHeightError, Kind as TileKind, Tile,
-	container::{TileKindError, UniqTileKind},
+use crate::{
+	dimensions,
+	image::{ReadError as ImageReadError, read_image_file},
+	osd::tile::{
+		InvalidHeightError, Kind as TileKind, Tile,
+		container::{TileKindError, UniqTileKind},
+	},
 };
 
 #[derive(Debug, From, Error)]

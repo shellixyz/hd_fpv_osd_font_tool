@@ -1,22 +1,23 @@
-use std::ops::Index;
-use std::path::Path;
+use std::{ops::Index, path::Path};
 
 use derive_more::{Display, Error, From};
 use getset::Getters;
 use strum::IntoEnumIterator;
 
-use super::load_tiles_from_dir::{LoadTilesFromDirError, load_tiles_from_dir};
-use super::save_tiles_to_dir::{SaveTilesToDir, SaveTilesToDirError};
-use super::save_to_bin_file::{SaveTilesToBinFileError, SaveToBinFiles};
-use super::save_to_grid::SaveToGridImage;
-use super::symbol::set::Set as SymbolSet;
-use super::symbol::spec::Specs as SymbolSpecs;
-use super::uniq_tile_kind::TileKindError;
-use super::{IntoTilesVec, ToSymbols};
-use crate::osd::tile::container::UniqTileKind;
-use crate::osd::tile::grid::SaveImageError as SaveGridImageError;
-use crate::osd::tile::grid::{Grid as TileGrid, LoadError as GridLoadError};
-use crate::osd::tile::{Kind as TileKind, Tile};
+use super::{
+	IntoTilesVec, ToSymbols,
+	load_tiles_from_dir::{LoadTilesFromDirError, load_tiles_from_dir},
+	save_tiles_to_dir::{SaveTilesToDir, SaveTilesToDirError},
+	save_to_bin_file::{SaveTilesToBinFileError, SaveToBinFiles},
+	save_to_grid::SaveToGridImage,
+	symbol::{set::Set as SymbolSet, spec::Specs as SymbolSpecs},
+	uniq_tile_kind::TileKindError,
+};
+use crate::osd::tile::{
+	Kind as TileKind, Tile,
+	container::UniqTileKind,
+	grid::{Grid as TileGrid, LoadError as GridLoadError, SaveImageError as SaveGridImageError},
+};
 
 #[derive(Debug, Display, Error, From)]
 pub enum LoadTileSetTilesFromDirError {

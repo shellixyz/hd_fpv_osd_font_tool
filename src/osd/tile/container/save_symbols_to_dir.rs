@@ -1,10 +1,12 @@
-use derive_more::{Display, Error, From};
 use std::path::{Path, PathBuf};
 
-use super::symbol::Symbol;
+use derive_more::{Display, Error, From};
 
-use crate::create_path::{CreatePathError, create_path};
-use crate::image::{WriteError as ImageWriteError, WriteImageFile};
+use super::symbol::Symbol;
+use crate::{
+	create_path::{CreatePathError, create_path},
+	image::{WriteError as ImageWriteError, WriteImageFile},
+};
 
 #[derive(Debug, Error, Display, From)]
 pub enum SaveSymbolsToDirError {

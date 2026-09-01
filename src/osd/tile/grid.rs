@@ -1,5 +1,7 @@
-use std::ops::Index;
-use std::path::{Path, PathBuf};
+use std::{
+	ops::Index,
+	path::{Path, PathBuf},
+};
 
 use derive_more::{Deref, Display, From, IntoIterator};
 use getset::Getters;
@@ -14,7 +16,6 @@ use super::{
 		uniq_tile_kind::{TileKindError, UniqTileKind},
 	},
 };
-
 use crate::{
 	create_path::{CreatePathError, create_path},
 	dimensions,
@@ -72,7 +73,8 @@ impl Grid {
 	/// Determines the tile kind and grid height from the provided image dimensions
 	///
 	/// # Errors
-	/// Returns `InvalidImageDimensionsError` if the image dimensions do not match any valid tile kind grid
+	/// Returns `InvalidImageDimensionsError` if the image dimensions do not match any valid tile
+	/// kind grid
 	pub fn image_tile_kind_and_grid_height(
 		image_dimensions: ImageDimensions,
 	) -> Result<(tile::Kind, usize), InvalidImageDimensionsError> {

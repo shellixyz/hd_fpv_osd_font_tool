@@ -11,11 +11,9 @@ pub mod symbol_tiles_iter;
 pub mod tile_set;
 pub mod uniq_tile_kind;
 
-use tap::Tap;
-
 use symbol::{Symbol, spec::Specs as SymbolSpecs};
-
 use symbol_tiles_iter::IntoSymbolsTilesIter;
+use tap::Tap;
 use uniq_tile_kind::{TileKindError, UniqTileKind};
 
 use super::Tile;

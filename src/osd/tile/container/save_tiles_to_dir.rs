@@ -1,6 +1,7 @@
+use std::path::{Path, PathBuf};
+
 use derive_more::{Display, Error, From};
 use image::ImageError;
-use std::path::{Path, PathBuf};
 
 use crate::{
 	create_path::{CreatePathError, create_path},

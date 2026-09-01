@@ -12,7 +12,6 @@ use super::tile::{
 	Kind as TileKind, Tile,
 	container::uniq_tile_kind::{TileKindError, UniqTileKind},
 };
-
 use crate::{
 	dimensions,
 	image::{ReadError as ImageReadError, WriteError as ImageWriteError, WriteImageFile, read_image_file},

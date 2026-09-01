@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 
-use std::env::current_exe;
-use std::{io::Write, process::exit};
+use std::{env::current_exe, io::Write, process::exit};
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -44,9 +43,7 @@ fn main() {
 		.format(|buf, record| {
 			let level_style = buf.default_level_style(record.level());
 			write!(buf, "{level_style}{:<5}{level_style:#}", record.level())?;
-			let separator_style = style::AnsiColor::White
-				.on_default()
-				.effects(style::Effects::BOLD);
+			let separator_style = style::AnsiColor::White.on_default().effects(style::Effects::BOLD);
 			write!(buf, "{separator_style} > {separator_style:#}")?;
 			writeln!(buf, "{}", record.args())
 		})

@@ -1,13 +1,11 @@
-
-use crate::osd::tile::{grid::Grid as TileGrid, Tile};
-
+use crate::osd::tile::{Tile, grid::Grid as TileGrid};
 
 pub trait IntoTileGrid {
-    fn into_tile_grid(self) -> TileGrid;
+	fn into_tile_grid(self) -> TileGrid;
 }
 
 impl IntoTileGrid for &[Tile] {
-    fn into_tile_grid(self) -> TileGrid {
-        TileGrid::from(self)
-    }
+	fn into_tile_grid(self) -> TileGrid {
+		TileGrid::from(self)
+	}
 }

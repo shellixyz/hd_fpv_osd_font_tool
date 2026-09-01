@@ -1,5 +1,7 @@
-use std::io::{Error as IOError, Read, Seek, Write};
-use std::path::{Path, PathBuf};
+use std::{
+	io::{Error as IOError, Read, Seek, Write},
+	path::{Path, PathBuf},
+};
 
 use derive_more::From;
 use fs_err::File;
@@ -12,7 +14,6 @@ use super::tile::{
 	container::{into_tile_grid::IntoTileGrid, tile_set::TileSet, uniq_tile_kind::UniqTileKind},
 	grid::Grid as TileGrid,
 };
-
 use crate::osd::tile::InvalidSizeError;
 
 pub const TILE_COUNT: usize = 256;
@@ -259,9 +260,8 @@ impl Iterator for BinFileReaderIterator {
 }
 
 impl IntoIterator for BinFileReader {
-	type Item = Result<Tile, IOError>;
-
 	type IntoIter = BinFileReaderIterator;
+	type Item = Result<Tile, IOError>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		BinFileReaderIterator(self)
@@ -526,7 +526,8 @@ impl BinFileWriter {
 		Ok(())
 	}
 
-	/// Fills the remaining space in the bin file with transparent tiles so that it contains exactly 256 tiles
+	/// Fills the remaining space in the bin file with transparent tiles so that it contains exactly
+	/// 256 tiles
 	///
 	/// # Errors
 	/// Returns `FillRemainingSpaceError` if filling fails

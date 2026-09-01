@@ -1,6 +1,7 @@
+use std::{io::Write, path::PathBuf};
+
 use clap::CommandFactory;
 use fs_err::File;
-use std::{io::Write, path::PathBuf};
 
 use super::cli::Cli;
 

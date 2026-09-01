@@ -1,8 +1,10 @@
-use std::collections::BTreeMap;
-use std::fs::ReadDir;
-use std::io::Error as IOError;
-use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::{
+	collections::BTreeMap,
+	fs::ReadDir,
+	io::Error as IOError,
+	path::{Path, PathBuf},
+	sync::LazyLock,
+};
 
 use regex::Regex;
 use thiserror::Error;
@@ -87,13 +89,7 @@ fn identify_file_name<P: AsRef<Path>>(path: P) -> Option<SymbolDirFileType> {
 	static FILE_NAME_RE: LazyLock<Regex> =
 		LazyLock::new(|| Regex::new(r"\A(?P<start_index>\d{3})(?:-(?P<end_index>\d{3}))?\.").unwrap());
 
-	if let Some(captures) = FILE_NAME_RE.captures(
-		path.as_ref()
-			.file_name()
-			.unwrap()
-			.to_string_lossy()
-			.as_ref(),
-	) {
+	if let Some(captures) = FILE_NAME_RE.captures(path.as_ref().file_name().unwrap().to_string_lossy().as_ref()) {
 		let start_index = captures
 			.name("start_index")
 			.unwrap()
@@ -207,10 +203,9 @@ pub fn load_symbols_from_dir<P: AsRef<Path>>(
 			},
 
 			// we have already loaded a tile before, check that the new tile kind is matching what had recorded
-			(Some(symbol), Some(tile_kind))
-				if symbol.tile_kind() != *tile_kind => {
-					return Err(LoadSymbolsFromDirError::kind_mismatch(&dir_path));
-				},
+			(Some(symbol), Some(tile_kind)) if symbol.tile_kind() != *tile_kind => {
+				return Err(LoadSymbolsFromDirError::kind_mismatch(&dir_path));
+			},
 
 			_ => {},
 		}
