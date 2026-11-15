@@ -1,6 +1,7 @@
 use std::{error::Error, fmt::Display, path::Path};
 
-use hd_fpv_osd_font_tool::prelude::*;
+use anyhow::bail;
+use hd_fpv_osd_font_tool::{osd::avatar_file, prelude::*};
 use thiserror::Error;
 
 use crate::ConvertOptions;
@@ -34,7 +35,8 @@ impl Display for InvalidConvertArgError {
 }
 
 enum ConvertArg<'a> {
-	BinFile(&'a str),
+	/// Base bin file and optional extended bin file
+	BinFile(&'a str, Option<&'a str>),
 	AvatarFile(&'a str),
 	TileGrid(&'a str),
 	TileDir(&'a str),
@@ -59,8 +61,11 @@ fn check_arg_image_file_extension(path: &str) -> Result<(), InvalidConvertArgErr
 }
 
 fn identify_convert_arg(input: &'_ str) -> Result<ConvertArg<'_>, InvalidConvertArgError> {
-	if let Some(path) = input.strip_prefix("djibin:") {
-		Ok(ConvertArg::BinFile(path))
+	if let Some(paths) = input.strip_prefix("djibin:") {
+		Ok(match paths.split_once(':') {
+			Some((base_path, ext_path)) => ConvertArg::BinFile(base_path, Some(ext_path)),
+			None => ConvertArg::BinFile(paths, None),
+		})
 	} else if let Some(path) = input.strip_prefix("tilegrid:") {
 		Ok(ConvertArg::TileGrid(path))
 	} else if let Some(path) = input.strip_prefix("tiledir:") {
@@ -84,6 +89,25 @@ pub enum ConvertError {
 	ToArg(InvalidConvertArgError),
 }
 
+/// Saves tiles to a bin file, or to a base and an extended bin file when `ext_path` is provided
+fn save_bin_files(tiles: &[Tile], base_path: &str, ext_path: Option<&str>) -> anyhow::Result<()> {
+	let Some(ext_path) = ext_path else {
+		tiles.save_to_bin_file(base_path)?;
+		return Ok(());
+	};
+	if tiles.len() <= bin_file::TILE_COUNT {
+		bail!(
+			"cannot write an extended bin file from {} tiles, more than {} are needed",
+			tiles.len(),
+			bin_file::TILE_COUNT
+		);
+	}
+	let (base_tiles, ext_tiles) = tiles.split_at(bin_file::TILE_COUNT);
+	base_tiles.save_to_bin_file(base_path)?;
+	ext_tiles.save_to_bin_file(ext_path)?;
+	Ok(())
+}
+
 fn convert_tiles(tiles: &Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
 	use ConvertArg as CA;
 	match to_arg {
@@ -96,7 +120,7 @@ fn convert_tiles(tiles: &Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOption
 			let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
 			tiles.to_symbols(&sym_specs)?.save_to_dir(to_path)?;
 		},
-		CA::BinFile(to_path) => tiles.save_to_bin_file(to_path)?,
+		CA::BinFile(base_path, ext_path) => save_bin_files(tiles, base_path, *ext_path)?,
 		CA::AvatarFile(to_path) => tiles.save_to_avatar_file(to_path)?,
 	}
 	Ok(())
@@ -105,7 +129,7 @@ fn convert_tiles(tiles: &Vec<Tile>, to_arg: &ConvertArg, options: &ConvertOption
 fn convert_tile_grid(tile_grid: &TileGrid, to_arg: &ConvertArg, options: &ConvertOptions) -> anyhow::Result<()> {
 	use ConvertArg as CA;
 	match to_arg {
-		CA::BinFile(to_path) => tile_grid.save_tiles_to_bin_file(to_path)?,
+		CA::BinFile(base_path, ext_path) => save_bin_files(tile_grid.as_slice(), base_path, *ext_path)?,
 		CA::TileDir(to_path) => tile_grid.save_tiles_to_dir(to_path)?,
 		CA::SymbolDir(to_path) => {
 			let sym_specs = SymbolSpecs::load_file(options.symbol_specs_file())?;
@@ -125,8 +149,11 @@ pub fn convert_command(from: &str, to: &str, options: &ConvertOptions) -> anyhow
 	log::info!("converting {from} -> {to}");
 
 	match (&from_arg, &to_arg) {
-		(CA::BinFile(from_path), to_arg) => {
-			let tiles = bin_file::load(from_path)?;
+		(CA::BinFile(base_path, ext_path), to_arg) => {
+			let tiles = match ext_path {
+				Some(ext_path) => bin_file::load_extended(*base_path, *ext_path)?,
+				None => bin_file::load(base_path)?,
+			};
 			convert_tiles(&tiles, to_arg, options)?;
 		},
 
@@ -137,12 +164,12 @@ pub fn convert_command(from: &str, to: &str, options: &ConvertOptions) -> anyhow
 		},
 
 		(CA::TileDir(from_path), to_arg) => {
-			let tiles = load_tiles_from_dir(from_path, 512)?;
+			let tiles = load_tiles_from_dir(from_path, avatar_file::MAX_TILE_COUNT)?;
 			convert_tiles(&tiles, to_arg, options)?;
 		},
 
 		(CA::SymbolDir(from_path), to_arg) => {
-			let tiles = load_symbols_from_dir(from_path, 512)?.into_tiles_vec();
+			let tiles = load_symbols_from_dir(from_path, avatar_file::MAX_TILE_COUNT)?.into_tiles_vec();
 			convert_tiles(&tiles, to_arg, options)?;
 		},
 
@@ -193,6 +220,94 @@ mod tests {
 			})
 			.tuple_windows()
 			.all(|(left, right)| left == right)
+	}
+
+	fn convert(from: &str, to: &str) {
+		let options = crate::ConvertOptions {
+			symbol_specs_file: &Path::new("symbol_specs/ardu.yaml").to_path_buf(),
+		};
+		convert_command(from, to, &options).unwrap();
+	}
+
+	fn bin_paths(tile_kind: tile::Kind) -> (PathBuf, PathBuf) {
+		let dir = "test_files/djibinsetnorm";
+		(
+			bin_file::normalized_file_path(dir, tile_kind, None, FontPart::Base),
+			bin_file::normalized_file_path(dir, tile_kind, None, FontPart::Ext),
+		)
+	}
+
+	#[test]
+	fn djibin_pair_round_trips_through_two_page_avatar() {
+		let temp_dir = TempDir::new().unwrap();
+		for tile_kind in tile::Kind::iter() {
+			let (base, ext) = bin_paths(tile_kind);
+			let avatar = temp_dir.child(format!("{tile_kind}.png"));
+			convert(
+				&format!("djibin:{}:{}", base.display(), ext.display()),
+				&format!("avatar:{}", avatar.display()),
+			);
+			let tile_dimensions = tile_kind.dimensions();
+			assert_eq!(
+				image::image_dimensions(&avatar).unwrap(),
+				(2 * tile_dimensions.width, 256 * tile_dimensions.height)
+			);
+
+			let (base_out, ext_out) = (
+				temp_dir.child(format!("{tile_kind}_base.bin")),
+				temp_dir.child(format!("{tile_kind}_ext.bin")),
+			);
+			convert(
+				&format!("avatar:{}", avatar.display()),
+				&format!("djibin:{}:{}", base_out.display(), ext_out.display()),
+			);
+			assert!(files_are_identical(&[base, base_out]));
+			assert!(files_are_identical(&[ext, ext_out]));
+		}
+	}
+
+	#[test]
+	fn four_page_avatar_round_trips_through_tiledir_and_symdir() {
+		let temp_dir = TempDir::new().unwrap();
+		for tile_kind in tile::Kind::iter() {
+			let (base, ext) = bin_paths(tile_kind);
+			let tiledir = temp_dir.child(format!("{tile_kind}_tiles"));
+			convert(
+				&format!("djibin:{}:{}", base.display(), ext.display()),
+				&format!("tiledir:{}", tiledir.display()),
+			);
+			// Pages 2 and 3 repeat pages 0 and 1, giving a 1024-tile collection
+			for index in 0..512 {
+				fs::copy(
+					tiledir.join(format!("{index:03}.png")),
+					tiledir.join(format!("{:03}.png", index + 512)),
+				)
+				.unwrap();
+			}
+
+			let avatar = temp_dir.child(format!("{tile_kind}_4.png"));
+			convert(
+				&format!("tiledir:{}", tiledir.display()),
+				&format!("avatar:{}", avatar.display()),
+			);
+			let tile_dimensions = tile_kind.dimensions();
+			assert_eq!(
+				image::image_dimensions(&avatar).unwrap(),
+				(4 * tile_dimensions.width, 256 * tile_dimensions.height)
+			);
+
+			let symdir = temp_dir.child(format!("{tile_kind}_symbols"));
+			convert(
+				&format!("avatar:{}", avatar.display()),
+				&format!("symdir:{}", symdir.display()),
+			);
+			let from_symdir = temp_dir.child(format!("{tile_kind}_from_symdir.png"));
+			convert(
+				&format!("symdir:{}", symdir.display()),
+				&format!("avatar:{}", from_symdir.display()),
+			);
+			assert!(files_are_identical(&[avatar, from_symdir]));
+		}
 	}
 
 	#[test]

@@ -21,8 +21,8 @@ pub enum Commands {
 	/// Converts between tile collection formats
 	///
 	/// Valid collection specifications are:{n}
-	///     * djibin:path       raw RGBA file{n}
-	///     * avatar:path       Avatar tile collection image file{n}
+	///     * djibin:path       raw RGBA file, `djibin:path:ext_path` adds its extended file{n}
+	///     * avatar:path       Avatar / msp-osd PNG font file{n}
 	///     * tilegrid:path     grid of tiles image{n}
 	///     * tiledir:path      directory with each tile in a separate file{n}
 	///     * symdir:path       directory with each symbol in a separate file{n}
@@ -34,6 +34,13 @@ pub enum Commands {
 	///     With ident:{n}
 	///         SD: `font_<ident>.bin` + `font_<ident>_2.bin`{n}
 	///         HD: `font_<ident>_hd.bin` + `font_<ident>_hd_2.bin`{n}
+	///
+	/// Avatar / msp-osd PNG font (avatar){n}
+	///     An image of 1 to 4 font pages side by side, each page a column of 256 tiles. The tile
+	/// at row `r` of page `p`{n}     is glyph `p × 256 + r`: page 0 holds the `font.bin` glyphs
+	/// and page 1 the `font_2.bin` glyphs. When saving,{n}     a page is written for each started
+	/// group of 256 tiles, a partial last page is padded with blank tiles and{n}     tiles
+	/// beyond 1024 are dropped.
 	///
 	/// Tile directory (tiledir){n}
 	///     A tile directory is a directory representing a collection of tiles with each tile in a
