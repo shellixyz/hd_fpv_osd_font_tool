@@ -1,3 +1,6 @@
+install-hooks:
+    git config core.hooksPath .githooks
+    @echo "Installed hd_fpv_osd_font_tool Git hooks."
 
 test:
     cargo nextest run

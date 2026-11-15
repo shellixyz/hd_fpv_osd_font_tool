@@ -37,3 +37,12 @@ Will extract all the tiles from `font.bin` to the `font_tiles` directory creatin
 ## Future
 
 * For now only the DJI FPV system and Walksnail Avatar fonts are supported but fonts for the HDZero video systems will be supported soon
+
+## Development
+
+Install the Git hooks with `just install-hooks`. The `pre-commit` hook checks the staged tree:
+ShellCheck on the hooks, `Cargo.lock`, man page generation, formatting, `cargo check`, Clippy,
+`cargo doc` and the tests. On success, `commit-msg` adds a `Checked-Tree` trailer to the commit.
+
+The hooks need [just](https://github.com/casey/just), ShellCheck, stable Rust with Clippy, and the
+pinned formatting toolchain: `rustup toolchain install nightly-2026-02-12 --component rustfmt`.
